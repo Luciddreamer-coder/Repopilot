@@ -48,6 +48,21 @@ class FileAnalysis:
     unresolved_imports: list[str] = field(default_factory=list)
     dependency_cycles: list[list[str]] = field(default_factory=list)
 
+    @property
+    def coverage(self) -> dict[str, Any] | None:
+        """Return the normalized coverage payload used by report JSON."""
+        if self.coverage_percent is None:
+            return None
+        return {
+            "percent": self.coverage_percent,
+            "percentage": self.coverage_percent,
+            "line_rate": self.coverage_percent / 100,
+            "covered_lines": self.coverage_covered_lines,
+            "total_lines": self.coverage_total_lines,
+            "missing_lines": self.coverage_missing_lines,
+            "source": self.coverage_source,
+        }
+
     def to_dict(self, include_content: bool = False) -> dict[str, Any]:
         result = {
             "path": self.path,
@@ -67,13 +82,7 @@ class FileAnalysis:
                 "authors": self.authors,
                 "last_changed": self.last_changed,
             },
-            "coverage": {
-                "percent": self.coverage_percent,
-                "covered_lines": self.coverage_covered_lines,
-                "total_lines": self.coverage_total_lines,
-                "missing_lines": self.coverage_missing_lines,
-                "source": self.coverage_source,
-            } if self.coverage_percent is not None else None,
+            "coverage": self.coverage,
             # Keep the scalar names convenient for API consumers that do not
             # want to unpack the nested coverage object.
             "coverage_percent": self.coverage_percent,
