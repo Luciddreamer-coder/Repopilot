@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS files (
     risk_level TEXT NOT NULL,
     summary TEXT NOT NULL,
     content TEXT NOT NULL,
+    git_json TEXT NOT NULL DEFAULT '{}',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
     UNIQUE(snapshot_id, path)
 );
 
@@ -106,6 +108,11 @@ class SQLitePersistence:
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.executescript(SCHEMA)
+        columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(files)")}
+        if "git_json" not in columns:
+            self.connection.execute("ALTER TABLE files ADD COLUMN git_json TEXT NOT NULL DEFAULT '{}'")
+        if "metadata_json" not in columns:
+            self.connection.execute("ALTER TABLE files ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'")
         self.connection.commit()
 
     def close(self) -> None:
@@ -154,9 +161,23 @@ class SQLitePersistence:
             )
             for item in report.files:
                 self.connection.execute(
-                    """INSERT INTO files(snapshot_id, path, language, lines, functions, risk_score, risk_level, summary, content)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (snapshot_id, item.path, item.language, item.lines, item.functions, item.risk_score, item.risk_level, item.summary, item.content),
+                    """INSERT INTO files(snapshot_id, path, language, lines, functions, risk_score, risk_level, summary, content, git_json, metadata_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (snapshot_id, item.path, item.language, item.lines, item.functions, item.risk_score, item.risk_level, item.summary, item.content, _json({
+                        "change_count": item.change_count,
+                        "lines_added": item.lines_added,
+                        "lines_deleted": item.lines_deleted,
+                        "authors": item.authors,
+                        "last_changed": item.last_changed,
+                     }), _json({
+                         "coverage_percent": item.coverage_percent,
+                         "coverage_covered_lines": item.coverage_covered_lines,
+                         "coverage_total_lines": item.coverage_total_lines,
+                         "coverage_missing_lines": item.coverage_missing_lines,
+                         "coverage_source": item.coverage_source,
+                         "unresolved_imports": item.unresolved_imports,
+                         "dependency_cycles": item.dependency_cycles,
+                     })),
                 )
                 for signal in item.signals:
                     self.connection.execute(
@@ -216,7 +237,7 @@ class SQLitePersistence:
             repository.setdefault("branch", snapshot["branch"])
             repository.setdefault("commit", snapshot["commit_hash"])
             file_rows = self.connection.execute(
-                "SELECT path, language, lines, functions, risk_score, risk_level, summary, content FROM files WHERE snapshot_id = ? ORDER BY id",
+                "SELECT path, language, lines, functions, risk_score, risk_level, summary, content, git_json, metadata_json FROM files WHERE snapshot_id = ? ORDER BY id",
                 (snapshot["id"],),
             ).fetchall()
             signal_rows = self.connection.execute(
@@ -244,9 +265,13 @@ class SQLitePersistence:
                     dependencies=dependencies.get(row["path"], []), dependents=dependents.get(row["path"], []),
                     risk_score=row["risk_score"], risk_level=row["risk_level"], signals=signals.get(row["path"], []),
                     summary=row["summary"], content=row["content"],
+                    **(_decode_object(row["git_json"], {}) if isinstance(_decode_object(row["git_json"], {}), dict) else {}),
+                    **(_decode_object(row["metadata_json"], {}) if isinstance(_decode_object(row["metadata_json"], {}), dict) else {}),
                 )
                 for row in file_rows
             ]
             weights = _decode_object(snapshot["weights_json"], {})
-            result.append((snapshot["id"], RepositoryReport(repository, files, snapshot["generated_at"], bool(snapshot["demo_mode"])), weights if isinstance(weights, dict) else {}))
+            unresolved = {item.path: list(item.unresolved_imports) for item in files if item.unresolved_imports}
+            cycles = sorted({tuple(cycle) for item in files for cycle in item.dependency_cycles})
+            result.append((snapshot["id"], RepositoryReport(repository, files, snapshot["generated_at"], bool(snapshot["demo_mode"]), unresolved, [list(cycle) for cycle in cycles]), weights if isinstance(weights, dict) else {}))
         return result

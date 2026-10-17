@@ -5,16 +5,20 @@ from __future__ import annotations
 import ast
 import hashlib
 import os
+import re
+import sqlite3
 import subprocess
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .demo_data import demo_report
 from .models import FileAnalysis, RepositoryReport, RiskSignal
 
 SUPPORTED = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rb", ".rs", ".md"}
 SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache", ".pytest_cache"}
+LOW_COVERAGE_THRESHOLD = 80.0
 
 
 def _level(score: int) -> str:
@@ -25,21 +29,70 @@ def _level(score: int) -> str:
     return "low"
 
 
-def _git_change_counts(root: Path, paths: list[Path]) -> dict[str, int]:
-    """Return recent commit counts when a local git history is available."""
-    result: dict[str, int] = {}
+def _git_file_metrics(root: Path, paths: list[Path]) -> dict[str, dict[str, object]]:
+    """Return recent commit, churn, author, and recency metrics per file."""
+    result: dict[str, dict[str, object]] = {}
     if not (root / ".git").exists():
         return result
     for path in paths:
         try:
             output = subprocess.run(
-                ["git", "-C", str(root), "log", "--since=30 days ago", "--oneline", "--", str(path.relative_to(root))],
+                ["git", "-C", str(root), "log", "--follow", "--since=90 days ago", "--numstat", "--format=%H%x1f%an%x1f%ad", "--date=iso-strict", "--", str(path.relative_to(root))],
                 capture_output=True, text=True, timeout=2, check=False,
             ).stdout
-            result[path.as_posix()] = len([line for line in output.splitlines() if line.strip()])
+            commits = 0
+            lines_added = 0
+            lines_deleted = 0
+            authors: set[str] = set()
+            last_changed: str | None = None
+            for line in output.splitlines():
+                if "\x1f" in line:
+                    _, author, changed_at = line.split("\x1f", 2)
+                    commits += 1
+                    authors.add(author.strip())
+                    last_changed = last_changed or changed_at.strip()
+                    continue
+                parts = line.split("\t")
+                if len(parts) < 3:
+                    continue
+                try:
+                    if parts[0] != "-":
+                        lines_added += int(parts[0])
+                    if parts[1] != "-":
+                        lines_deleted += int(parts[1])
+                except ValueError:
+                    continue
+            result[path.as_posix()] = {
+                "change_count": commits,
+                "lines_added": lines_added,
+                "lines_deleted": lines_deleted,
+                "authors": len(authors),
+                "last_changed": last_changed,
+            }
         except (OSError, subprocess.SubprocessError, ValueError):
-            result[path.as_posix()] = 0
+            result[path.as_posix()] = {}
     return result
+
+
+def _git_repository_metrics(root: Path) -> dict[str, object]:
+    """Return a compact repository-level Git activity summary."""
+    if not (root / ".git").exists():
+        return {"window_days": 90, "recent_commits": 0, "contributors": 0, "last_commit": None}
+    try:
+        output = subprocess.run(
+            ["git", "-C", str(root), "log", "--since=90 days ago", "--format=%H%x1f%an%x1f%ad", "--date=iso-strict"],
+            capture_output=True, text=True, timeout=2, check=False,
+        ).stdout
+        rows = [line.split("\x1f", 2) for line in output.splitlines() if "\x1f" in line]
+        authors = {row[1].strip() for row in rows if len(row) > 1 and row[1].strip()}
+        return {
+            "window_days": 90,
+            "recent_commits": len(rows),
+            "contributors": len(authors),
+            "last_commit": rows[0][2].strip() if rows and len(rows[0]) > 2 else None,
+        }
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return {"window_days": 90, "recent_commits": 0, "contributors": 0, "last_commit": None}
 
 
 def _python_metrics(content: str) -> tuple[int, int]:
@@ -52,29 +105,365 @@ def _python_metrics(content: str) -> tuple[int, int]:
     return functions, branches
 
 
-def _imports(path: Path, content: str, relative_paths: set[str]) -> list[str]:
-    candidates: set[str] = set()
-    if path.suffix == ".py":
-        try:
-            tree = ast.parse(content)
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    candidates.update(alias.name.split(".")[0] for alias in node.names)
-                elif isinstance(node, ast.ImportFrom) and node.module:
-                    candidates.add(node.module.split(".")[0])
-        except SyntaxError:
-            pass
+def _normalize_path(value: str) -> str:
+    return value.replace("\\", "/").lstrip("./")
+
+
+def _python_module_index(relative_paths: set[str]) -> dict[str, str]:
+    """Map importable dotted Python names to analyzed paths.
+
+    The index intentionally contains only files in the current scan.  This
+    makes the dependency graph conservative: third-party and stdlib imports
+    are unresolved instead of being guessed as local relationships.
+    """
+    index: dict[str, str] = {}
+    for relative in sorted(relative_paths):
+        if not relative.endswith(".py"):
+            continue
+        path = PurePosixPath(relative)
+        parts = list(path.parts)
+        if parts[-1] == "__init__.py":
+            name_parts = parts[:-1]
+        else:
+            name_parts = parts[:-1] + [path.stem]
+        if name_parts:
+            index[".".join(name_parts)] = relative
+            # ``src`` and similar source roots are commonly added to
+            # PYTHONPATH, so permit imports that intentionally omit that
+            # filesystem-only prefix.  Do not add aliases for arbitrary
+            # package directories; that would invent edges for ``import x``.
+            if name_parts[0] in {"src", "source", "lib", "python"} and len(name_parts) > 1:
+                index[".".join(name_parts[1:])] = relative
+    return index
+
+
+def _python_import_candidates(path: Path, node: ast.Import | ast.ImportFrom, relative_paths: set[str], index: dict[str, str]) -> list[tuple[str, str]]:
+    """Return ``(displayed import, dotted candidate)`` pairs for a node."""
+    result: list[tuple[str, str]] = []
+    if isinstance(node, ast.Import):
+        for alias in node.names:
+            result.append((alias.name, alias.name))
+        return result
+
+    module = node.module or ""
+    if node.level:
+        # ``path.parent`` is the package containing the current module.  A
+        # level of one stays in that package; each additional dot climbs one
+        # package, matching Python's ImportFrom semantics.
+        package_parts = list(path.parent.parts)
+        climb = max(node.level - 1, 0)
+        if climb > len(package_parts):
+            package_parts = []
+        else:
+            package_parts = package_parts[: len(package_parts) - climb]
+        base = ".".join(package_parts + ([module] if module else []))
+        shown = "." * node.level + module
+        if module:
+            result.append((shown, base))
+        for alias in node.names:
+            # ``from . import sibling`` names the sibling module directly.
+            if not module:
+                result.append((shown + alias.name, ".".join(package_parts + [alias.name])))
+            elif base not in index:
+                # If the imported module itself is not present, a submodule
+                # may still be present (``from .package import module``).
+                result.append((shown + " " + alias.name, base + "." + alias.name))
+        return result
+
+    if module:
+        shown = module
+        result.append((shown, module))
+        # A module imported from a package may be represented by the package
+        # file or by one of its child modules.
+        if module in index:
+            for alias in node.names:
+                result.append((f"{module}.{alias.name}", f"{module}.{alias.name}"))
+    return result
+
+
+def _resolve_python_name(name: str, index: dict[str, str]) -> str | None:
+    candidate = name.lstrip(".")
+    while candidate:
+        if candidate in index:
+            return index[candidate]
+        candidate = candidate.rsplit(".", 1)[0] if "." in candidate else ""
+    return None
+
+
+def _python_imports(path: Path, content: str, relative_paths: set[str]) -> tuple[list[str], list[str]]:
+    dependencies: set[str] = set()
+    unresolved: set[str] = set()
+    index = _python_module_index(relative_paths)
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return [], []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Import, ast.ImportFrom)):
+            continue
+        node_resolved = False
+        node_unresolved: set[str] = set()
+        for displayed, candidate in _python_import_candidates(path, node, relative_paths, index):
+            target = _resolve_python_name(candidate, index)
+            if target and target != path.as_posix():
+                dependencies.add(target)
+                node_resolved = True
+            elif not target:
+                node_unresolved.add(displayed)
+        if node_unresolved and not node_resolved:
+            if isinstance(node, ast.ImportFrom) and node.module:
+                unresolved.add("." * node.level + node.module)
+            else:
+                unresolved.update(node_unresolved)
+    return sorted(dependencies), sorted(unresolved)
+
+
+def _non_python_imports(path: Path, content: str, relative_paths: set[str]) -> tuple[list[str], list[str]]:
+    """Resolve only explicit file/module names for non-Python source files."""
+    if path.suffix.lower() in {".js", ".jsx", ".ts", ".tsx"}:
+        patterns = (
+            r"\bfrom\s+[\"']([^\"']+)[\"']",
+            r"\bimport\s+[\"']([^\"']+)[\"']",
+            r"\bexport\s+[^;\n]*?\s+from\s+[\"']([^\"']+)[\"']",
+            r"\brequire\s*\(\s*[\"']([^\"']+)[\"']\s*\)",
+        )
+    elif path.suffix.lower() == ".java":
+        patterns = (r"\bimport\s+([A-Za-z_][\w.]*)\s*;",)
+    elif path.suffix.lower() == ".go":
+        patterns = (r"\bimport\s*(?:\([^)]*?\s)?[\"']([^\"']+)[\"']",)
+    elif path.suffix.lower() == ".rb":
+        patterns = (r"\brequire(?:_relative)?\s+[\"']([^\"']+)[\"']",)
     else:
-        # A deliberately small, dependency-free heuristic for common import syntax.
-        import re
-        candidates.update(re.findall(r"(?:from|import)\s+[\"']([^\"']+)", content))
-    matches = []
-    stem = path.stem
-    for other in relative_paths:
-        other_stem = Path(other).stem
-        if other != path.as_posix() and (other_stem in candidates or other_stem in " ".join(candidates) or stem in other):
-            matches.append(other)
-    return sorted(set(matches))
+        patterns = (r"\bfrom\s+[\"']([^\"']+)[\"']", r"\bimport\s+[\"']([^\"']+)[\"']")
+    candidates: list[str] = []
+    for pattern in patterns:
+        candidates.extend(re.findall(pattern, content))
+    candidates = sorted(set(candidates))
+    normalized = {_normalize_path(item): item for item in relative_paths}
+    dependencies: set[str] = set()
+    unresolved: set[str] = set()
+    source_parent = path.parent
+    for candidate in candidates:
+        if candidate.startswith("."):
+            base = PurePosixPath(source_parent.as_posix()) / candidate
+            base_name = base.as_posix()
+        else:
+            base_name = candidate.replace(".", "/")
+        base_name = _normalize_path(base_name)
+        options = [base_name]
+        if Path(base_name).suffix == "":
+            options.extend([base_name + suffix for suffix in (".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rb", ".rs")])
+            options.extend([base_name + "/" + init for init in ("index.js", "index.ts", "__init__.py")])
+        target = next((normalized.get(_normalize_path(option)) for option in options if _normalize_path(option) in normalized), None)
+        if target and target != path.as_posix():
+            dependencies.add(target)
+        elif not target:
+            unresolved.add(candidate)
+    return sorted(dependencies), sorted(unresolved)
+
+
+def _imports_with_unresolved(path: Path, content: str, relative_paths: set[str]) -> tuple[list[str], list[str]]:
+    if path.suffix.lower() == ".py":
+        return _python_imports(path, content, relative_paths)
+    return _non_python_imports(path, content, relative_paths)
+
+
+def _imports(path: Path, content: str, relative_paths: set[str]) -> list[str]:
+    """Compatibility wrapper returning only resolved local imports."""
+    return _imports_with_unresolved(path, content, relative_paths)[0]
+
+
+def _coverage_path(root: Path, raw_path: str, relative_paths: set[str]) -> str | None:
+    value = raw_path.strip().replace("\\", "/")
+    if not value:
+        return None
+    value = re.sub(r"^[A-Za-z]:/", "/", value)
+    candidates = [value.lstrip("/")]
+    try:
+        candidates.append(Path(value).resolve().relative_to(root.resolve()).as_posix())
+    except (OSError, ValueError):
+        pass
+    for candidate in candidates:
+        candidate = candidate.lstrip("./")
+        if candidate in relative_paths:
+            return candidate
+    suffix_matches = [path for path in relative_paths if path.endswith("/" + value.lstrip("/")) or path == value.lstrip("/")]
+    if not suffix_matches:
+        basename = PurePosixPath(value).name
+        suffix_matches = [path for path in relative_paths if PurePosixPath(path).name == basename]
+    return sorted(suffix_matches)[0] if len(suffix_matches) == 1 else None
+
+
+def _coverage_entry(covered: int, total: int, source: str) -> dict[str, object] | None:
+    if total <= 0:
+        return None
+    covered = max(0, min(covered, total))
+    return {
+        "percent": round(covered * 100 / total, 2),
+        "covered_lines": covered,
+        "total_lines": total,
+        "missing_lines": total - covered,
+        "source": source,
+    }
+
+
+def _parse_lcov(root: Path, relative_paths: set[str]) -> dict[str, dict[str, object]]:
+    report = root / "lcov.info"
+    if not report.is_file():
+        return {}
+    result: dict[str, dict[str, object]] = {}
+    current: str | None = None
+    line_hits: dict[int, int] = {}
+    found: int | None = None
+    hit: int | None = None
+    try:
+        lines = report.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return {}
+    def finish() -> None:
+        nonlocal current, line_hits, found, hit
+        if current:
+            total = found if found is not None else len(line_hits)
+            covered = hit if hit is not None else sum(value > 0 for value in line_hits.values())
+            entry = _coverage_entry(covered, total, "lcov.info")
+            if entry:
+                result[current] = entry
+        current, line_hits, found, hit = None, {}, None, None
+    for line in lines:
+        if line.startswith("SF:"):
+            finish()
+            current = _coverage_path(root, line[3:], relative_paths)
+        elif line.startswith("DA:"):
+            fields = line[3:].split(",")
+            if len(fields) >= 2:
+                try:
+                    line_hits[int(fields[0])] = int(fields[1])
+                except ValueError:
+                    pass
+        elif line.startswith("LF:"):
+            try:
+                found = int(line[3:])
+            except ValueError:
+                pass
+        elif line.startswith("LH:"):
+            try:
+                hit = int(line[3:])
+            except ValueError:
+                pass
+        elif line == "end_of_record":
+            finish()
+    finish()
+    return result
+
+
+def _parse_coverage_xml(root: Path, relative_paths: set[str]) -> dict[str, dict[str, object]]:
+    report = root / "coverage.xml"
+    if not report.is_file():
+        return {}
+    try:
+        document = ET.parse(report)
+    except (OSError, ET.ParseError):
+        return {}
+    counts: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    class_nodes = [node for node in document.getroot().iter() if node.tag.rsplit("}", 1)[-1] == "class"]
+    for class_node in class_nodes:
+        filename = class_node.attrib.get("filename", "")
+        relative = _coverage_path(root, filename, relative_paths)
+        if not relative:
+            continue
+        line_nodes = [node for node in class_node.iter() if node.tag.rsplit("}", 1)[-1] == "line"]
+        for line_node in line_nodes:
+            counts[relative][1] += 1
+            try:
+                counts[relative][0] += int(float(line_node.attrib.get("hits", "0"))) > 0
+            except ValueError:
+                pass
+    return {
+        relative: entry
+        for relative, (covered, total) in counts.items()
+        if (entry := _coverage_entry(covered, total, "coverage.xml")) is not None
+    }
+
+
+def _parse_coverage_database(root: Path, relative_paths: set[str]) -> dict[str, dict[str, object]]:
+    """Best-effort reader for old coverage.py ``line`` tables.
+
+    Newer coverage.py releases store compact ``line_bits`` blobs, which are
+    deliberately left alone here because decoding them would duplicate a
+    third-party implementation.  XML/LCOV remain the fully supported formats.
+    """
+    database = root / ".coverage"
+    if not database.is_file():
+        return {}
+    try:
+        connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True)
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {"file", "line"}.issubset(tables):
+            connection.close()
+            return {}
+        rows = connection.execute("SELECT file.path, COUNT(line.line) FROM file JOIN line ON line.file_id = file.id GROUP BY file.path").fetchall()
+        connection.close()
+    except (OSError, sqlite3.Error):
+        return {}
+    result: dict[str, dict[str, object]] = {}
+    for raw_path, covered in rows:
+        relative = _coverage_path(root, str(raw_path), relative_paths)
+        if not relative:
+            continue
+        source_lines = len((root / relative).read_text(encoding="utf-8", errors="replace").splitlines())
+        entry = _coverage_entry(int(covered), source_lines, ".coverage")
+        if entry:
+            result[relative] = entry
+    return result
+
+
+def _load_coverage(root: Path, relative_paths: set[str]) -> dict[str, dict[str, object]]:
+    """Read available local coverage reports, preferring XML then LCOV."""
+    result = _parse_coverage_xml(root, relative_paths)
+    for relative, entry in _parse_lcov(root, relative_paths).items():
+        result.setdefault(relative, entry)
+    for relative, entry in _parse_coverage_database(root, relative_paths).items():
+        result.setdefault(relative, entry)
+    return result
+
+
+def _dependency_cycles(dependencies: dict[str, list[str]]) -> list[list[str]]:
+    """Return deterministic strongly-connected dependency components."""
+    index = 0
+    stack: list[str] = []
+    on_stack: set[str] = set()
+    indexes: dict[str, int] = {}
+    lowlinks: dict[str, int] = {}
+    cycles: list[list[str]] = []
+
+    def visit(node: str) -> None:
+        nonlocal index
+        indexes[node] = lowlinks[node] = index
+        index += 1
+        stack.append(node)
+        on_stack.add(node)
+        for target in dependencies.get(node, []):
+            if target not in indexes:
+                visit(target)
+                lowlinks[node] = min(lowlinks[node], lowlinks[target])
+            elif target in on_stack:
+                lowlinks[node] = min(lowlinks[node], indexes[target])
+        if lowlinks[node] == indexes[node]:
+            component: list[str] = []
+            while True:
+                target = stack.pop()
+                on_stack.remove(target)
+                component.append(target)
+                if target == node:
+                    break
+            component.sort()
+            if len(component) > 1 or component[0] in dependencies.get(component[0], []):
+                cycles.append(component)
+
+    for node in sorted(dependencies):
+        if node not in indexes:
+            visit(node)
+    return sorted(cycles)
 
 
 def scan_repository(repository_path: str | os.PathLike[str] | None) -> RepositoryReport:
@@ -90,8 +479,10 @@ def scan_repository(repository_path: str | os.PathLike[str] | None) -> Repositor
     if not paths:
         return demo_report()
     rel_paths = {path.relative_to(root).as_posix() for path in paths}
-    changes = _git_change_counts(root, paths)
+    git_metrics = _git_file_metrics(root, paths)
+    coverage = _load_coverage(root, rel_paths)
     dependencies: dict[str, list[str]] = {}
+    unresolved_imports: dict[str, list[str]] = {}
     contents: dict[str, str] = {}
     for path in paths:
         rel = path.relative_to(root).as_posix()
@@ -100,11 +491,18 @@ def scan_repository(repository_path: str | os.PathLike[str] | None) -> Repositor
         except OSError:
             content = ""
         contents[rel] = content
-        dependencies[rel] = _imports(path, content, rel_paths)
+        # Resolve imports against repository-relative paths, never against the
+        # machine-specific absolute path used for file I/O.
+        dependencies[rel], unresolved_imports[rel] = _imports_with_unresolved(Path(rel), content, rel_paths)
     dependents: dict[str, list[str]] = defaultdict(list)
     for source, targets in dependencies.items():
         for target in targets:
             dependents[target].append(source)
+    cycles = _dependency_cycles(dependencies)
+    cycles_by_file: dict[str, list[list[str]]] = defaultdict(list)
+    for cycle in cycles:
+        for member in cycle:
+            cycles_by_file[member].append(cycle)
 
     analyses: list[FileAnalysis] = []
     for path in paths:
@@ -112,25 +510,52 @@ def scan_repository(repository_path: str | os.PathLike[str] | None) -> Repositor
         content = contents[rel]
         lines = len(content.splitlines())
         functions, branches = _python_metrics(content) if path.suffix == ".py" else (content.count("function ") + content.count("def "), content.count("if ") + content.count("for "))
-        change_count = changes.get(path.as_posix(), 0)
+        file_git = git_metrics.get(path.as_posix(), {})
+        change_count = int(file_git.get("change_count", 0) or 0)
         if change_count == 0:
             # Keep the model useful for non-git folders while remaining deterministic.
             change_count = int(hashlib.sha1(content.encode()).hexdigest()[:2], 16) % 4
+        lines_added = int(file_git.get("lines_added", 0) or 0)
+        lines_deleted = int(file_git.get("lines_deleted", 0) or 0)
+        authors = int(file_git.get("authors", 0) or 0)
+        last_changed = file_git.get("last_changed")
         complexity = min(100, round((lines / 4) + (branches * 4) + (functions * 1.5)))
         frequency = min(100, change_count * 11)
         reach = min(100, len(dependencies[rel]) * 12 + len(dependents[rel]) * 20)
         risk = round(complexity * 0.45 + frequency * 0.25 + reach * 0.30)
         signals = [
             RiskSignal("complexity", complexity, _level(complexity), "Complexity combines file size, functions, and branching.", [f"{functions} functions", f"{branches} branch points", f"{lines} lines"]),
-            RiskSignal("change_frequency", frequency, _level(frequency), "Change frequency uses commits from the last 30 days when git history is available.", [f"{change_count} recent changes"]),
+            RiskSignal("change_frequency", frequency, _level(frequency), "Change frequency uses recent Git history when available, with churn and author context.", [f"{change_count} recent changes", f"{lines_added} lines added / {lines_deleted} deleted", f"{authors} contributing authors" if authors else "Git author history unavailable"]),
             RiskSignal("dependency_reach", reach, _level(reach), "Dependency reach combines direct imports and downstream dependents.", [f"{len(dependencies[rel])} direct dependencies", f"{len(dependents[rel])} downstream dependents"]),
         ]
-        analyses.append(FileAnalysis(rel, _language(path.suffix), lines, functions, dependencies[rel], sorted(dependents[rel]), risk, _level(risk), signals, _summary(risk, len(dependents[rel])), content))
+        file_coverage = coverage.get(rel)
+        if file_coverage:
+            coverage_percent = float(file_coverage["percent"])
+            if coverage_percent < LOW_COVERAGE_THRESHOLD:
+                coverage_score = round(min(100, max((LOW_COVERAGE_THRESHOLD - coverage_percent) * 1.25, 40 if risk >= 75 else 0)))
+                signals.append(RiskSignal(
+                    "low_coverage", coverage_score, _level(coverage_score),
+                    "Line coverage is below the analysis threshold; high-risk modules should have focused tests.",
+                    [f"{coverage_percent:.2f}% line coverage", f"{file_coverage['missing_lines']} uncovered lines", f"source: {file_coverage['source']}"],
+                ))
+        analyses.append(FileAnalysis(
+            rel, _language(path.suffix), lines, functions, dependencies[rel], sorted(dependents[rel]),
+            risk, _level(risk), signals, _summary(risk, len(dependents[rel])), content, change_count,
+            lines_added, lines_deleted, authors, str(last_changed) if last_changed else None,
+            float(file_coverage["percent"]) if file_coverage else None,
+            int(file_coverage["covered_lines"]) if file_coverage else None,
+            int(file_coverage["total_lines"]) if file_coverage else None,
+            int(file_coverage["missing_lines"]) if file_coverage else None,
+            str(file_coverage["source"]) if file_coverage else None,
+            unresolved_imports.get(rel, []), cycles_by_file.get(rel, []),
+        ))
     return RepositoryReport(
-        repository={"name": root.name, "path": str(root), "branch": _git_branch(root), "commit": _git_commit(root)},
+        repository={"name": root.name, "path": str(root), "branch": _git_branch(root), "commit": _git_commit(root), "git": _git_repository_metrics(root)},
         files=analyses,
         generated_at=datetime.now(timezone.utc).isoformat(),
         demo_mode=False,
+        unresolved_imports={path: imports for path, imports in unresolved_imports.items() if imports},
+        dependency_cycles=cycles,
     )
 
 

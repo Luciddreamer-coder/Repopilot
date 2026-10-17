@@ -53,6 +53,7 @@ def _context(report=None, view: str = "dashboard") -> dict:
     summary["edges"] = sum(len(item.get("dependencies", [])) for item in files)
     body["summary"] = summary
     body.update({"report": body, "repo": body.get("repository", {}), "files": files, "hotspots": summary.get("hotspots", []), "metrics": summary, "demo_mode": body.get("demo_mode", False), "generated_at": "just now"})
+    body.update({"history": _history_body(), "findings": _findings(_report())[:8], "weights": dict(_store().weights), "graph": _graph(_report()), "file_options": [item.to_dict() for item in _report().files]})
     return body
 
 
@@ -135,10 +136,32 @@ def health():
     return jsonify({"status": "ok", "service": "repopilot", "demo_mode": _report().demo_mode})
 
 
+@api.get("/api/git/activity")
+@api.get("/git/activity")
+def git_activity():
+    """Expose the file-level Git evidence used by the change signal."""
+    report = _report()
+    files = sorted(
+        (
+            {
+                "path": item.path,
+                "change_count": item.change_count,
+                "lines_added": item.lines_added,
+                "lines_deleted": item.lines_deleted,
+                "authors": item.authors,
+                "last_changed": item.last_changed,
+            }
+            for item in report.files
+        ),
+        key=lambda item: (-item["change_count"], -item["lines_added"] - item["lines_deleted"], item["path"]),
+    )
+    return jsonify({"view": "git_activity", "repository": report.repository, "window_days": report.repository.get("git", {}).get("window_days", 90), "files": files})
+
+
 def _history_body() -> dict[str, Any]:
     snapshots = _store().snapshots
     timeline = [item.metadata() for item in snapshots]
-    return {"view": "history", "repository": _report().repository, "current_snapshot_id": snapshots[-1].id if snapshots else None, "snapshots": timeline, "timeline": timeline}
+    return {"view": "history", "repository": _report().repository, "current_snapshot_id": _store().current_snapshot_id, "snapshots": timeline, "timeline": timeline}
 
 
 @api.get("/api/snapshots")
@@ -152,7 +175,12 @@ def _history_body() -> dict[str, Any]:
 @api.get("/api/timeline")
 @api.get("/timeline")
 def history():
-    return jsonify(_history_body())
+    body = _history_body()
+    if _wants_json():
+        return jsonify(body)
+    context = _context(view="history")
+    context.update({"history": body, "snapshots": body["snapshots"]})
+    return render_template("history.html", **context)
 
 
 @api.get("/api/snapshots/<snapshot_id>")
@@ -163,6 +191,14 @@ def snapshot_detail(snapshot_id: str):
     body = item.report.to_dict()
     body.update({"view": "snapshot", "snapshot_id": item.id, "weights": item.weights})
     return jsonify(body)
+
+
+@api.post("/api/snapshots/<snapshot_id>/select")
+def select_snapshot(snapshot_id: str):
+    item = _store().select_snapshot(snapshot_id)
+    if item is None:
+        return jsonify({"error": "snapshot_not_found", "message": f"No snapshot named '{snapshot_id}'."}), 404
+    return jsonify({"view": "snapshot_selected", "snapshot_id": item.id, "repository": item.report.repository})
 
 
 def _repository_summary(report) -> dict[str, Any]:
@@ -193,7 +229,13 @@ def repository_compare():
             changed.append({"path": path, "status": "added" if left is None else "removed" if right is None else "changed", "before": left.to_dict() if left else None, "after": right.to_dict() if right else None})
     before_view = {"snapshot_id": base.id, "repository": base.report.repository, "summary": before}
     after_view = {"snapshot_id": target.id, "repository": target.report.repository, "summary": after}
-    return jsonify({"view": "repository_compare", "base": before_view, "target": after_view, "before": before_view, "after": after_view, "delta": {key: after[key] - before[key] for key in ("file_count", "average_risk", "dependency_count")}, "changed_files": changed})
+    finding_changes = _finding_lifecycle(target.report, base.report, target.id, base.id)
+    body = {"view": "repository_compare", "base": before_view, "target": after_view, "before": before_view, "after": after_view, "delta": {key: after[key] - before[key] for key in ("file_count", "average_risk", "dependency_count")}, "changed_files": changed, "finding_changes": _finding_change_summary(finding_changes)}
+    if _wants_json():
+        return jsonify(body)
+    context = _context(view="repository_compare")
+    context.update({"comparison": body, "base_snapshot": before_view, "target_snapshot": after_view, "changed_files": changed})
+    return render_template("repository_compare.html", **context)
 
 
 def _findings(report) -> list[dict[str, Any]]:
@@ -206,17 +248,58 @@ def _findings(report) -> list[dict[str, Any]]:
     return sorted(findings, key=lambda entry: (-entry["score"], entry["file"], entry["signal"]))
 
 
+def _finding_lifecycle(current_report, previous_report=None, current_snapshot_id: str | None = None, previous_snapshot_id: str | None = None) -> list[dict[str, Any]]:
+    """Classify findings against the immediately previous snapshot."""
+    current = {item["id"]: item for item in _findings(current_report)}
+    previous = {item["id"]: item for item in _findings(previous_report)} if previous_report else {}
+    lifecycle: list[dict[str, Any]] = []
+    for finding_id, item in current.items():
+        before = previous.get(finding_id)
+        delta = item["score"] - before["score"] if before else item["score"]
+        status = "new" if before is None else "regressed" if delta >= 3 else "improved" if delta <= -3 else "open"
+        lifecycle.append({**item, "status": status, "score_delta": delta, "previous_score": before["score"] if before else None, "first_seen_snapshot": current_snapshot_id if before is None else previous_snapshot_id, "resolved_in_snapshot": None})
+    for finding_id, before in previous.items():
+        if finding_id not in current:
+            lifecycle.append({**before, "status": "resolved", "score_delta": -before["score"], "previous_score": before["score"], "first_seen_snapshot": previous_snapshot_id, "resolved_in_snapshot": current_snapshot_id})
+    return sorted(lifecycle, key=lambda entry: (0 if entry["status"] in {"new", "regressed"} else 1, -entry["score"], entry["file"], entry["signal"]))
+
+
+def _finding_change_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = {status: sum(1 for item in items if item["status"] == status) for status in ("new", "resolved", "regressed", "improved", "open")}
+    return {"counts": counts, "findings": items}
+
+
 @api.get("/api/findings")
 @api.get("/findings")
 def findings():
-    result = _findings(_report())
+    current_snapshot = _store().snapshot(None)
+    previous_snapshot = _store().previous_snapshot(current_snapshot.id if current_snapshot else None)
+    result = _finding_lifecycle(_report(), previous_snapshot.report if previous_snapshot else None, current_snapshot.id if current_snapshot else None, previous_snapshot.id if previous_snapshot else None)
     severity = request.args.get("severity")
     file_path = request.args.get("file") or request.args.get("path")
     if severity:
         result = [item for item in result if item["severity"] == severity.lower()]
     if file_path:
         result = [item for item in result if item["file"] == file_path]
-    return jsonify({"view": "findings", "repository": _report().repository, "count": len(result), "findings": result})
+    body = {"view": "findings", "repository": _report().repository, "count": len(result), "findings": result}
+    if _wants_json():
+        return jsonify(body)
+    context = _context(view="findings")
+    context.update({"findings": result, "finding_count": len(result)})
+    return render_template("findings.html", **context)
+
+
+@api.get("/api/findings/compare")
+def findings_compare():
+    snapshots = _store().snapshots
+    base_id = request.args.get("base_snapshot") or request.args.get("base") or request.args.get("before")
+    target_id = request.args.get("target_snapshot") or request.args.get("target") or request.args.get("after")
+    base = _store().snapshot(base_id) if base_id else (snapshots[-2] if len(snapshots) > 1 else None)
+    target = _store().snapshot(target_id) if target_id else (snapshots[-1] if snapshots else None)
+    if base is None or target is None:
+        return jsonify({"error": "no_snapshots", "message": "No repository snapshots are available."}), 404
+    items = _finding_lifecycle(target.report, base.report, target.id, base.id)
+    return jsonify({"view": "finding_compare", "base_snapshot_id": base.id, "target_snapshot_id": target.id, **_finding_change_summary(items)})
 
 
 def _impact(file_path: str):
@@ -246,6 +329,10 @@ def _impact(file_path: str):
 def impact_query():
     file_path = request.args.get("file") or request.args.get("path")
     result = _impact(file_path or "")
+    if not _wants_json():
+        context = _context(view="impact")
+        context.update({"impact": result, "selected_path": file_path or (context["files"][0]["path"] if context["files"] else "")})
+        return render_template("impact.html", **context), 200 if result else 404
     return jsonify(result or {"error": "file_not_found", "message": f"No analyzed file named '{file_path}'."}), 200 if result else 404
 
 
@@ -258,16 +345,40 @@ def impact_path(file_path: str):
 
 
 def _graph(report) -> dict[str, Any]:
-    nodes = [{"id": item.path, "label": item.path, "language": item.language, "risk_score": item.risk_score, "risk_level": item.risk_level} for item in report.files]
+    nodes = [{
+        "id": item.path,
+        "label": item.path,
+        "language": item.language,
+        "risk_score": item.risk_score,
+        "risk_level": item.risk_level,
+        "unresolved_imports": list(item.unresolved_imports),
+        "cycles": [list(cycle) for cycle in item.dependency_cycles],
+    } for item in report.files]
     edges = [{"source": item.path, "target": dependency} for item in report.files for dependency in item.dependencies]
-    return {"view": "dependency_graph", "repository": report.repository, "nodes": nodes, "edges": edges}
+    unresolved = [
+        {"file": path, "imports": list(imports)}
+        for path, imports in sorted(report.unresolved_imports.items()) if imports
+    ]
+    return {
+        "view": "dependency_graph",
+        "repository": report.repository,
+        "nodes": nodes,
+        "edges": edges,
+        "unresolved_imports": unresolved,
+        "cycles": [list(cycle) for cycle in report.dependency_cycles],
+    }
 
 
 @api.get("/api/dependencies")
 @api.get("/api/dependency-graph")
 @api.get("/dependencies")
 def dependency_graph():
-    return jsonify(_graph(_report()))
+    body = _graph(_report())
+    if _wants_json():
+        return jsonify(body)
+    context = _context(view="dependencies")
+    context.update({"graph": body})
+    return render_template("dependencies.html", **context)
 
 
 def _weight_values(source) -> tuple[dict[str, float] | None, str | None]:
@@ -307,6 +418,12 @@ def scoring_weights():
     return jsonify({"view": "scoring_weights", "weights": dict(_store().weights), "report": _payload(view="dashboard")})
 
 
+@api.get("/settings/scoring")
+def scoring_settings():
+    context = _context(view="settings")
+    return render_template("settings.html", **context)
+
+
 def _markdown_report(report) -> str:
     summary = report.to_dict()["summary"]
     lines = [f"# RepoPilot report: {report.repository.get('name', 'repository')}", "", f"- Generated: {report.generated_at}", f"- Branch: {report.repository.get('branch', 'unknown')}", f"- Files: {summary['file_count']}", f"- Average risk: {summary['average_risk']}", "", "## Findings", ""]
@@ -325,6 +442,13 @@ def markdown_report():
     response = Response(_markdown_report(_report()), mimetype="text/markdown")
     response.headers["Content-Disposition"] = "attachment; filename=repopilot-report.md"
     return response
+
+
+@api.get("/report")
+def report_page():
+    context = _context(view="report")
+    context["report_markdown_url"] = "/api/report/markdown"
+    return render_template("report.html", **context)
 
 
 def _refactor(file_path: str):
@@ -347,6 +471,10 @@ def _refactor(file_path: str):
 def refactor_query():
     file_path = request.args.get("file") or request.args.get("path")
     result = _refactor(file_path or "")
+    if not _wants_json():
+        context = _context(view="refactor")
+        context.update({"refactor": result, "selected_path": file_path or (context["files"][0]["path"] if context["files"] else "")})
+        return render_template("refactor.html", **context), 200 if result else 404
     return jsonify(result or {"error": "file_not_found", "message": f"No analyzed file named '{file_path}'."}), 200 if result else 404
 
 
