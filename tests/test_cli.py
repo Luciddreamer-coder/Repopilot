@@ -52,6 +52,8 @@ class RepoPilotCliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("# RepoPilot report", output)
         self.assertIn("| File | Risk | Level |", output)
+        self.assertIn("main.py", output)
+        self.assertNotIn("src/api/routes.py", output)
 
         code, output = self.run_cli("report", str(self.root), "--format", "json")
         self.assertEqual(code, 0)

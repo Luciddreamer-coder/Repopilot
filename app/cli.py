@@ -179,12 +179,12 @@ def _command_findings(args: argparse.Namespace) -> int:
 
 
 def _command_report(args: argparse.Namespace) -> int:
-    store, report, findings = _scan_store(args.path, args.database)
+    store, report, _ = _scan_store(args.path, args.database)
     try:
         if args.format == "json":
             _json_output(_report_payload(report, command="report", snapshot_id=store.current_snapshot_id))
         else:
-            print(_markdown_report(report, findings), end="")
+            print(_markdown_report(report, _findings(report)), end="")
     finally:
         store.close()
     return 0
