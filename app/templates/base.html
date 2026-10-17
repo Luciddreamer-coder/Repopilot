@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="RepoPilot repository intelligence and risk analysis">
+  <title>{% block title %}RepoPilot{% endblock %} · RepoPilot</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="app-body">
+  <svg class="icon-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M4 12h16M12 4v16"/></symbol>
+    <symbol id="i-compare" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14M5 8l-3 4 3 4M19 8l3 4-3 4"/><path d="M2 12h6M16 12h6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0-14.8-3L3 11M4 5v6h6M4 13a8.1 8.1 0 0 0 14.8 3L21 13m0 6v-6h-6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2.8 19a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path d="M15 22v-3.9c.1-1.4-.5-2.1-1.1-2.6 3.6-.4 7.4-1.8 7.4-8.1a6.3 6.3 0 0 0-1.7-4.4 5.8 5.8 0 0 0-.1-4.3S18.1-2 14 1.3a15.1 15.1 0 0 0-4 0C5.9-2 4.5-1.3 4.5-1.3a5.8 5.8 0 0 0-.1 4.3 6.3 6.3 0 0 0-1.7 4.4c0 6.3 3.8 7.7 7.4 8.1-.5.5-1 1.3-1 2.6V22M8 18c-3 .9-3.5-1.4-4.8-1.8"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+      <div class="sidebar-top">
+        <a class="brand" href="/dashboard" aria-label="RepoPilot dashboard">
+          <span class="brand-mark"><span></span><span></span><span></span></span>
+          <span>Repo<span class="brand-accent">Pilot</span></span>
+        </a>
+        <button class="icon-button sidebar-close" type="button" data-sidebar-close aria-label="Close navigation">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+
+      <div class="workspace-switcher">
+        <div class="workspace-avatar">{{ (repo.name|default('R', true)|string)[:1]|upper }}</div>
+        <div class="workspace-copy">
+          <span class="eyebrow">Workspace</span>
+          <strong>{{ repo.name|default('repo-pilot-demo', true) }}</strong>
+        </div>
+        <span class="workspace-dot" title="Workspace connected"></span>
+      </div>
+
+      <nav class="nav-section" aria-label="Workspace">
+        <span class="nav-label">Workspace</span>
+        <a class="nav-link {% if active_page|default('dashboard') == 'dashboard' %}is-active{% endif %}" href="/dashboard">
+          <svg aria-hidden="true"><use href="#i-grid"></use></svg><span>Overview</span><kbd>G&nbsp; O</kbd>
+        </a>
+        <a class="nav-link {% if active_page|default('') == 'scan' %}is-active{% endif %}" href="/scan">
+          <svg aria-hidden="true"><use href="#i-scan"></use></svg><span>New scan</span><kbd>G&nbsp; S</kbd>
+        </a>
+        <a class="nav-link {% if active_page|default('') == 'compare' %}is-active{% endif %}" href="/compare">
+          <svg aria-hidden="true"><use href="#i-compare"></use></svg><span>Compare files</span>
+        </a>
+      </nav>
+
+      <nav class="nav-section nav-section-files" aria-label="Repository">
+        <span class="nav-label">Repository</span>
+        <a class="nav-link" href="#risk-table" data-scroll-target="risk-table">
+          <svg aria-hidden="true"><use href="#i-file"></use></svg><span>File explorer</span>
+        </a>
+        <a class="nav-link" href="/api/report" target="_blank" rel="noreferrer">
+          <svg aria-hidden="true"><use href="#i-download"></use></svg><span>Export report</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="sidebar-tip">
+          <span class="tip-spark">✦</span>
+          <div><strong>Read the signals</strong><p>Risk is explainable. Open any file to see why it scored.</p></div>
+          <a href="/dashboard#risk-table" aria-label="Read risk signals"><svg aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
+        </div>
+        <div class="connection-status"><span class="status-dot"></span><span>Local analysis engine</span><span class="status-live">LIVE</span></div>
+      </div>
+    </aside>
+
+    <div class="sidebar-backdrop" data-sidebar-close></div>
+    <main class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-button menu-trigger" type="button" data-sidebar-toggle aria-label="Open navigation"><span class="menu-lines"></span></button>
+          <div class="breadcrumbs"><a href="/dashboard">Workspace</a><span>/</span><span>{% block breadcrumb %}Overview{% endblock %}</span></div>
+        </div>
+        <div class="topbar-actions">
+          <span class="last-scan"><span class="status-dot"></span> <span class="hide-mobile">Last scan</span> {{ generated_at|default('just now', true) }}</span>
+          <a class="avatar" href="#profile" aria-label="Account menu">SP</a>
+        </div>
+      </header>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash flash-{{ category|default('info') }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+      {% endwith %}
+
+      <div class="page-content">
+        {% block content %}{% endblock %}
+      </div>
+      <footer class="page-footer"><span>RepoPilot <span class="muted">· repository intelligence</span></span><span class="footer-shortcuts"><kbd>?</kbd> Shortcuts</span></footer>
+    </main>
+  </div>
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

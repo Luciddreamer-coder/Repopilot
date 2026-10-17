@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% set active_page = 'dashboard' %}
+{% set report_data = report|default({}, true) %}
+{% set repo = repo|default(report_data.repository|default({}, true), true) %}
+{% set files_data = files|default(report_data.files|default([], true), true) %}
+{% set metric_data = metrics|default(report_data.summary|default({}, true), true) %}
+{% set hotspots_data = hotspots|default(metric_data.hotspots|default([], true), true) %}
+{% set risk_counts = metric_data.risk_counts|default({}, true) %}
+{% set average_risk = metric_data.average_risk|default(report_data.average_risk|default(0), true) %}
+{% set file_count = metric_data.file_count|default(files_data|length, true) %}
+{% set high_count = risk_counts.high|default(0, true) + risk_counts.critical|default(0, true) %}
+{% block title %}Overview{% endblock %}
+{% block breadcrumb %}Overview{% endblock %}
+{% block page_actions %}{% endblock %}
+{% block content %}
+  <section class="page-hero dashboard-hero">
+    <div>
+      <div class="eyebrow eyebrow-purple"><span class="pulse-dot"></span> Repository intelligence</div>
+      <h1>Good morning, <span class="gradient-text">shipper.</span></h1>
+      <p class="hero-copy">A clear view of what changed, what matters, and where to look next.</p>
+    </div>
+    <div class="hero-actions">
+      <a class="button button-secondary" href="/api/report" target="_blank" rel="noreferrer"><svg aria-hidden="true"><use href="#i-download"></use></svg> Export report</a>
+      <a class="button button-primary" href="/scan"><svg aria-hidden="true"><use href="#i-refresh"></use></svg> Run new scan</a>
+    </div>
+  </section>
+
+  <section class="repo-banner panel">
+    <div class="repo-identity"><div class="repo-icon"><svg aria-hidden="true"><use href="#i-github"></use></svg></div><div><span class="eyebrow">Analyzing repository</span><h2>{{ repo.name|default('repo-pilot-demo', true) }}</h2><span class="repo-path">{{ repo.path|default('demo://repo-pilot', true) }}</span></div></div>
+    <div class="repo-meta"><span class="branch-pill"><span class="branch-mark">⑂</span> {{ repo.branch|default('main', true) }}</span><span class="commit-pill">{{ repo.commit|default('demo-7f3a2c1', true) }}</span>{% if demo_mode|default(report_data.demo_mode|default(true), true) %}<span class="demo-pill">DEMO DATA</span>{% endif %}</div>
+  </section>
+
+  <section class="metric-grid" aria-label="Repository metrics">
+    <article class="metric-card metric-risk"><div class="metric-card-top"><span class="metric-label">Average risk</span><span class="metric-icon"><svg aria-hidden="true"><use href="#i-alert"></use></svg></span></div><div class="metric-value-row"><strong>{{ average_risk }}</strong><span class="metric-unit">/ 100</span><span class="trend trend-up"><svg aria-hidden="true"><use href="#i-arrow-up"></use></svg> 4.2%</span></div><div class="metric-foot"><span class="risk-bar"><span style="width: {{ average_risk }}%"></span></span><span class="risk-caption">{% if average_risk >= 70 %}Needs attention{% elif average_risk >= 40 %}Watch closely{% else %}Healthy{% endif %}</span></div></article>
+    <article class="metric-card"><div class="metric-card-top"><span class="metric-label">Files analyzed</span><span class="metric-icon icon-blue"><svg aria-hidden="true"><use href="#i-file"></use></svg></span></div><div class="metric-value-row"><strong>{{ file_count }}</strong><span class="trend trend-neutral">+{{ files_data|length if files_data else 0 }} this scan</span></div><div class="metric-foot"><span class="mini-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="risk-caption">Across the repository</span></div></article>
+    <article class="metric-card"><div class="metric-card-top"><span class="metric-label">High-risk hotspots</span><span class="metric-icon icon-orange"><svg aria-hidden="true"><use href="#i-alert"></use></svg></span></div><div class="metric-value-row"><strong>{{ high_count }}</strong><span class="trend trend-down">↓ 2 resolved</span></div><div class="metric-foot"><span class="hotspot-dots"><i class="is-critical"></i><i class="is-high"></i><i class="is-high"></i><i></i><i></i></span><span class="risk-caption">Files over risk threshold</span></div></article>
+    <article class="metric-card"><div class="metric-card-top"><span class="metric-label">Dependencies mapped</span><span class="metric-icon icon-green"><svg aria-hidden="true"><use href="#i-compare"></use></svg></span></div><div class="metric-value-row"><strong>{{ metric_data.dependency_count|default(metric_data.dependencies|default(12, true), true) }}</strong><span class="trend trend-neutral">stable</span></div><div class="metric-foot"><span class="dependency-line"><i></i><i></i><i></i><i></i><i></i></span><span class="risk-caption">Direct + downstream links</span></div></article>
+  </section>
+
+  <section class="dashboard-grid">
+    <article class="panel radar-panel">
+      <div class="panel-heading"><div><span class="eyebrow">Risk profile</span><h2>Signal radar</h2></div><button class="more-button" type="button" aria-label="More radar options">•••</button></div>
+      <div class="radar-layout">
+        <div class="radar-chart" role="img" aria-label="Risk radar showing complexity, change frequency and dependency reach">
+          <svg viewBox="0 0 320 270" aria-hidden="true"><defs><linearGradient id="radarFill" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#a78bfa" stop-opacity=".42"/><stop offset="1" stop-color="#22d3ee" stop-opacity=".16"/></linearGradient></defs><g class="radar-grid"><polygon points="160,25 270,88 270,213 160,275 50,213 50,88"/><polygon points="160,57 242,104 242,197 160,243 78,197 78,104"/><polygon points="160,89 215,120 215,181 160,211 105,181 105,120"/><line x1="160" y1="25" x2="160" y2="275"/><line x1="50" y1="88" x2="270" y2="213"/><line x1="270" y1="88" x2="50" y2="213"/></g><polygon class="radar-fill" points="160,53 236,118 207,177 160,224 91,190 88,112"/><polygon class="radar-outline" points="160,53 236,118 207,177 160,224 91,190 88,112"/><g class="radar-points"><circle cx="160" cy="53" r="4"/><circle cx="236" cy="118" r="4"/><circle cx="207" cy="177" r="4"/><circle cx="160" cy="224" r="4"/><circle cx="91" cy="190" r="4"/><circle cx="88" cy="112" r="4"/></g></svg>
+          <span class="radar-axis axis-top">Complexity</span><span class="radar-axis axis-right">Change frequency</span><span class="radar-axis axis-bottom">Dependency reach</span><span class="radar-axis axis-left">Churn</span>
+        </div>
+        <div class="signal-list"><div class="signal-row"><span class="signal-marker purple"></span><div><strong>Complexity</strong><small>Nested branches &amp; function size</small></div><b>{{ metric_data.complexity|default(72, true) }}</b></div><div class="signal-row"><span class="signal-marker cyan"></span><div><strong>Change frequency</strong><small>Recent activity &amp; churn</small></div><b>{{ metric_data.change_frequency|default(64, true) }}</b></div><div class="signal-row"><span class="signal-marker pink"></span><div><strong>Dependency reach</strong><small>Downstream impact surface</small></div><b>{{ metric_data.dependency_reach|default(58, true) }}</b></div><div class="radar-note"><span class="tip-spark">✦</span><span>Complexity is your biggest signal. Start with the hotspot list below.</span></div></div>
+      </div>
+    </article>
+    <article class="panel dependency-panel"><div class="panel-heading"><div><span class="eyebrow">System map</span><h2>Dependency pulse</h2></div><a class="text-link" href="#risk-table">View map <svg aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></div><div class="dependency-visual"><div class="dep-orbit orbit-one"></div><div class="dep-orbit orbit-two"></div><div class="dep-node node-center"><span>RP</span><small>entrypoint</small></div><div class="dep-node node-top"><span>API</span></div><div class="dep-node node-right"><span>DB</span></div><div class="dep-node node-bottom"><span>UI</span></div><div class="dep-node node-left"><span>CFG</span></div><svg class="dep-lines" viewBox="0 0 400 270" preserveAspectRatio="none" aria-hidden="true"><path d="M200 135 200 35M200 135 350 135M200 135 200 235M200 135 50 135"/><path d="M200 35 350 135 200 235 50 135Z"/></svg></div><div class="dependency-stats"><div><strong>{{ metric_data.nodes|default(file_count, true) }}</strong><span>nodes</span></div><div><strong>{{ metric_data.edges|default(18, true) }}</strong><span>connections</span></div><div><strong>{{ metric_data.clusters|default(3, true) }}</strong><span>clusters</span></div></div></article>
+  </section>
+
+  <section class="panel table-panel" id="risk-table">
+    <div class="panel-heading table-heading"><div><span class="eyebrow">Prioritized by impact</span><h2>File risk overview</h2></div><div class="table-tools"><label class="search-field"><svg aria-hidden="true"><use href="#i-search"></use></svg><input type="search" placeholder="Filter files…" aria-label="Filter files" data-file-filter></label><button class="filter-button" type="button" data-risk-filter="all">All files <span>⌄</span></button></div></div>
+    {% if files_data %}
+    <div class="table-wrap"><table class="risk-table"><thead><tr><th scope="col">File <span class="sort-caret">↕</span></th><th scope="col">Risk score <span class="sort-caret">↕</span></th><th scope="col">Signals</th><th scope="col">Lines</th><th scope="col">Dependencies</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead><tbody data-file-rows>
+      {% for file in files_data %}<tr data-file-row data-risk-level="{{ file.risk_level|default('low', true) }}" data-file-name="{{ file.path|default('', true)|lower }}"><td><a class="file-cell" href="/file/{{ file.path|default('', true)|urlencode }}"><span class="file-type {{ file.language|default('file', true)|lower }}">{{ (file.language|default('F', true))[:1]|upper }}</span><span><strong>{{ file.path|default('untitled file', true) }}</strong><small>{{ file.language|default('Unknown', true) }}</small></span></a></td><td><div class="score-cell"><span class="score-number risk-{{ file.risk_level|default('low', true) }}">{{ file.risk_score|default(0, true) }}</span><span class="score-track"><i style="width: {{ file.risk_score|default(0, true) }}%"></i></span></div></td><td><span class="risk-badge risk-{{ file.risk_level|default('low', true) }}">{{ file.risk_level|default('low', true)|capitalize }}</span></td><td class="muted-cell">{{ file.lines|default('—', true) }}</td><td class="muted-cell">{{ file.dependencies|default([], true)|length }} direct</td><td><a class="row-arrow" href="/file/{{ file.path|default('', true)|urlencode }}" aria-label="Open {{ file.path|default('file', true) }}"><svg aria-hidden="true"><use href="#i-chevron"></use></svg></a></td></tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="empty-state"><div class="empty-icon"><svg aria-hidden="true"><use href="#i-file"></use></svg></div><h3>No files analyzed yet</h3><p>Point RepoPilot at a local repository to see explainable risk signals here.</p><a class="button button-primary" href="/scan">Start your first scan <svg aria-hidden="true"><use href="#i-arrow-right"></use></svg></a></div>{% endif %}
+    <div class="table-footer"><span>Showing {{ files_data|length }} analyzed file{{ 's' if files_data|length != 1 else '' }}</span><a class="text-link" href="/scan">Scan again <svg aria-hidden="true"><use href="#i-refresh"></use></svg></a></div>
+  </section>
+{% endblock %}
