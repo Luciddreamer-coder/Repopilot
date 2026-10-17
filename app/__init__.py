@@ -1,11 +1,8 @@
 """RepoPilot Flask application factory."""
 
+from __future__ import annotations
+
 import os
-
-from flask import Flask
-
-from .history import SnapshotStore
-from .routes import api
 
 
 def create_app(test_config: dict | None = None) -> Flask:
@@ -14,6 +11,12 @@ def create_app(test_config: dict | None = None) -> Flask:
     ``DATABASE_PATH`` (or ``REPOPILOT_DATABASE_PATH``) can point to a test or
     application database.  The default is an instance-local SQLite file.
     """
+    # Keep importing ``app.cli`` dependency-free: Flask is only needed when the
+    # web application factory is actually used.
+    from flask import Flask
+
+    from .history import SnapshotStore
+    from .routes import api
 
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
