@@ -75,7 +75,7 @@ reach (direct dependencies plus downstream dependents).
 ## Verify
 
 ```powershell
-make test
+python -m unittest discover -s tests -v
 python -m compileall app app.py
 ```
 
