@@ -82,6 +82,9 @@ class RepoPilotExperimentTests(unittest.TestCase):
             self.assertIn(b"evidence-graph-node", page.data)
             self.assertIn(b"dependency_hub", page.data)
             self.assertIn(b"cycle_a.py", page.data)
+            self.assertIn(b"Inspectable dependency graph labels", page.data)
+            self.assertIn(b"graph_entry.py imports dependency_hub.py", page.data)
+            self.assertIn(b"unresolved_import.py unresolved imports", page.data)
 
             json_download = client.get("/reports/experiments/experiments.json")
             markdown_download = client.get("/reports/experiments/experiments.md")

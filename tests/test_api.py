@@ -60,6 +60,21 @@ class RepoPilotApiTests(unittest.TestCase):
         self.assertEqual(dashboard.status_code, 200)
         self.assertIn(b"Signal radar", dashboard.data)
         self.assertIn(b"File risk overview", dashboard.data)
+        report = self.client.get("/dashboard").get_json()
+        averages = {}
+        for name in ("complexity", "change_frequency", "dependency_reach"):
+            values = [signal["score"] for item in report["files"] for signal in item["signals"] if signal["name"] == name]
+            averages[name] = round(sum(values) / len(values)) if values else 0
+        self.assertIn(f"Risk radar: Complexity {averages['complexity']}".encode(), dashboard.data)
+        self.assertIn(f"Change frequency {averages['change_frequency']}".encode(), dashboard.data)
+        self.assertIn(f"Dependency reach {averages['dependency_reach']}".encode(), dashboard.data)
+        self.assertIn(b"Dependency reach", dashboard.data)
+        self.assertNotIn(b">Churn<", dashboard.data)
+        self.assertIn(b"Dependency summary", dashboard.data)
+        self.assertIn(b"src/api/routes.py", dashboard.data)
+        self.assertNotIn(b"node-center", dashboard.data)
+        self.assertIn(b"data-snapshot-id=\"snapshot-001\"", dashboard.data)
+        self.assertIn(b"average risk", dashboard.data)
 
         detail = self.client.get("/file/src/api/routes.py", headers=headers)
         self.assertEqual(detail.status_code, 200)
@@ -69,6 +84,35 @@ class RepoPilotApiTests(unittest.TestCase):
         missing = self.client.get("/file/missing.py", headers=headers)
         self.assertEqual(missing.status_code, 404)
         self.assertIn(b"File not found", missing.data)
+
+    def test_chart_templates_expose_complete_data_for_accessible_interaction(self):
+        headers = {"Accept": "text/html"}
+        dashboard = self.client.get("/dashboard", headers=headers)
+        self.assertIn(b"data-risk=\"", dashboard.data)
+
+        self.client.post("/scan", json={"repo_path": str(FIXTURE)})
+        dashboard = self.client.get("/dashboard", headers=headers)
+        self.assertIn(b"data-label=\"low_coverage.py\"", dashboard.data)
+        self.assertIn(b"aria-label=\"low_coverage.py: risk", dashboard.data)
+        self.assertIn(b"title=\"low_coverage.py ", dashboard.data)
+        self.assertIn(b"style=\"left:", dashboard.data)
+        self.assertIn(b"data-coverage=\"10.0\"", dashboard.data)
+        self.assertIn(b"radar-fill", dashboard.data)
+
+        history = self.client.get("/history", headers=headers)
+        self.assertEqual(history.status_code, 200)
+        self.assertIn(b"snapshot-001", history.data)
+
+    def test_crowded_trajectory_keeps_all_points_but_selects_labels(self):
+        for _ in range(5):
+            self.client.post("/scan", json={"repo_path": str(FIXTURE)})
+
+        page = self.client.get("/dashboard", headers={"Accept": "text/html"})
+        points = page.data.count(b"data-snapshot-id=")
+        labels = page.data.count(b"<small>snapshot-")
+        self.assertGreaterEqual(points, 7)
+        self.assertLess(labels, points)
+        self.assertIn(b"selected labels shown", page.data)
 
     def test_intelligence_endpoints(self):
         history = self.client.get("/api/history")

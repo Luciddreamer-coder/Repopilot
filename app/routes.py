@@ -85,8 +85,21 @@ def _context(report=None, view: str = "dashboard") -> dict:
     summary["edges"] = sum(len(item.get("dependencies", [])) for item in files)
     body["summary"] = summary
     body.update({"report": body, "repo": body.get("repository", {}), "files": files, "hotspots": summary.get("hotspots", []), "metrics": summary, "demo_mode": body.get("demo_mode", False), "generated_at": "just now"})
-    body.update({"history": _history_body(), "findings": _findings(_report())[:8], "weights": dict(_store().weights), "graph": _graph(_report()), "file_options": [item.to_dict() for item in _report().files], "experiments": _experiments(), "experiments_json_url": "/reports/experiments/experiments.json", "experiments_markdown_url": "/reports/experiments/experiments.md"})
+    graph = _graph(_report())
+    body.update({"history": _history_body(), "findings": _findings(_report())[:8], "weights": dict(_store().weights), "graph": graph, "graph_data": graph, "radar_complexity": averages["complexity"], "radar_change_frequency": averages["change_frequency"], "radar_dependency_reach": averages["dependency_reach"], "radar_points": _radar_points(averages), "file_options": [item.to_dict() for item in _report().files], "experiments": _experiments(), "experiments_json_url": "/reports/experiments/experiments.json", "experiments_markdown_url": "/reports/experiments/experiments.md"})
     return body
+
+
+def _radar_points(values: dict[str, int]) -> str:
+    """Return a safe SVG point string for the three dashboard signals."""
+    complexity = max(0, min(100, values.get("complexity", 0)))
+    change = max(0, min(100, values.get("change_frequency", 0)))
+    reach = max(0, min(100, values.get("dependency_reach", 0)))
+    return " ".join((
+        f"160,{round(145 - complexity * 1.2)}",
+        f"{round(160 + change * 1.1)},{round(145 + change * 0.65)}",
+        f"{round(160 - reach * 1.1)},{round(145 + reach * 0.65)}",
+    ))
 
 
 def _requested_path() -> str | None:

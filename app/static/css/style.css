@@ -292,3 +292,532 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   .report-evidence-actions { flex-direction: column; }
   .report-evidence-actions .button { width: 100%; }
 }
+
+/* Cozy Midnight layout refinements. The existing color tokens above are the
+   approved palette; these variables only give the interface a shared rhythm
+   for type and spacing. */
+:root {
+  --font-size-xs: .625rem;
+  --font-size-sm: .6875rem;
+  --font-size-body: .875rem;
+  --font-size-lg: 1rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: clamp(1.5rem, 2.8vw, 2rem);
+  --font-size-display: clamp(2rem, 4vw, 2.75rem);
+  --line-height-tight: 1.15;
+  --line-height-body: 1.55;
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --content-gap: 1.125rem;
+  --card-padding: 1.25rem;
+  --card-padding-compact: 1rem;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+.main-content,
+.page-content,
+.panel,
+.metric-card,
+.page-hero,
+.panel-heading,
+.topbar-left,
+.topbar-actions,
+.repo-identity,
+.repo-meta,
+.file-hero-main,
+.file-hero-actions,
+.compare-file-heading,
+.finding-head,
+.evidence-card-top,
+.report-cover-top {
+  min-width: 0;
+}
+
+h1,
+h2,
+h3 {
+  line-height: var(--line-height-tight);
+}
+
+.page-hero h1 {
+  font-size: var(--font-size-display);
+}
+
+.file-hero h1,
+.report-cover h2,
+.formula-card h2 {
+  font-size: var(--font-size-2xl);
+}
+
+.panel-heading h2,
+.compare-summary h2,
+.compare-result-hero h2,
+.impact-hero h2,
+.evidence-card h2,
+.coverage-detail-copy h2 {
+  font-size: var(--font-size-xl);
+}
+
+.eyebrow,
+.nav-label,
+.metric-label,
+.risk-caption,
+.metric-unit,
+.metric-caption,
+.repo-path,
+.file-cell small,
+.detail-context-note,
+.coverage-panel-note,
+.coverage-state,
+.graph-subtitle,
+.graph-legend,
+.architecture-legend,
+.dependency-graph-caption,
+.delta-legend,
+.ranking-matrix-legend,
+.report-evidence-grid span,
+.report-evidence-grid small {
+  font-size: var(--font-size-xs);
+}
+
+.breadcrumbs,
+.repo-meta,
+.text-link,
+.button-shortcut,
+.compare-summary p,
+.compare-result-hero p,
+.impact-hero p,
+.file-hero p,
+.report-cover p {
+  font-size: var(--font-size-sm);
+}
+
+.graph-legend,
+.architecture-legend,
+.dependency-graph-caption,
+.delta-legend,
+.ranking-matrix-legend {
+  line-height: 1.35;
+}
+
+.page-hero,
+.repo-banner,
+.metric-grid,
+.dashboard-grid,
+.dashboard-extensions,
+.history-metrics,
+.finding-summary-grid,
+.graph-stat-grid,
+.comparison-metric-grid,
+.detail-grid,
+.dependency-detail-grid,
+.impact-grid,
+.settings-grid,
+.report-sections,
+.evidence-grid,
+.structural-detail-grid,
+.impact-context-grid,
+.impact-evidence-grid {
+  margin-bottom: var(--content-gap);
+}
+
+.metric-grid,
+.dashboard-grid,
+.dashboard-extensions,
+.history-metrics,
+.finding-summary-grid,
+.graph-stat-grid,
+.comparison-metric-grid,
+.detail-grid,
+.dependency-detail-grid,
+.impact-grid,
+.settings-grid,
+.report-sections,
+.evidence-grid,
+.structural-detail-grid,
+.impact-context-grid,
+.impact-evidence-grid {
+  gap: var(--content-gap);
+}
+
+.panel-heading {
+  gap: var(--space-5);
+}
+
+/* Nested metric strips read as part of their parent surface. Their content
+   remains separated by the shared divider, without a second rounded card. */
+.git-detail-grid > div,
+.impact-context-values > div,
+.report-summary-grid > div {
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.git-detail-grid > div:first-child,
+.impact-context-values > div:first-child,
+.report-summary-grid > div:first-child {
+  border-left: 0;
+}
+
+.git-detail-grid > div,
+.impact-context-values > div,
+.report-summary-grid > div {
+  padding-left: var(--card-padding-compact);
+}
+
+.file-cell,
+.file-cell > div,
+.repo-identity > div,
+.file-hero-main > div,
+.compare-file-heading > div,
+.finding-head > div,
+.evidence-card-top > div,
+.report-cover-top > div,
+.panel-heading > div {
+  min-width: 0;
+}
+
+.file-cell strong,
+.file-cell small,
+.repo-path,
+.file-hero h1,
+.compare-file-heading h3,
+.edge-row a,
+.file-list a,
+.impact-evidence-item strong,
+.warning-chip-list span,
+.cycle-list span,
+.source-code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.file-cell {
+  max-width: 100%;
+}
+
+.file-cell strong,
+.file-cell small {
+  max-width: 100%;
+}
+
+.table-wrap,
+.architecture-stage,
+.code-window,
+.code-diff-grid,
+.ranking-matrix {
+  max-width: 100%;
+}
+
+.source-code {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.changed-file-row strong,
+.report-row strong,
+.git-detail-grid strong,
+.impact-chip-list a b,
+.impact-chip-meta {
+  min-width: 0;
+}
+
+.topbar-left,
+.breadcrumbs {
+  overflow: hidden;
+}
+
+.breadcrumbs span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.architecture-stage,
+.table-wrap,
+.ranking-matrix,
+.code-window {
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 900px) {
+  .page-content {
+    padding-right: var(--space-5);
+    padding-left: var(--space-5);
+  }
+
+  .topbar,
+  .page-footer {
+    padding-right: var(--space-5);
+    padding-left: var(--space-5);
+  }
+
+  .repo-banner,
+  .file-hero,
+  .compare-summary,
+  .compare-result-hero,
+  .impact-hero,
+  .refactor-verdict,
+  .report-cover-top,
+  .dashboard-evidence-card,
+  .coverage-detail-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .repo-identity,
+  .repo-meta,
+  .file-hero-main,
+  .file-hero-actions,
+  .hero-actions,
+  .dashboard-evidence-stats,
+  .coverage-detail-value {
+    width: 100%;
+  }
+
+  .repo-meta {
+    justify-content: flex-start;
+  }
+
+  .file-hero-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .compare-form,
+  .snapshot-picker form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .snapshot-picker form {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-swap,
+  .snapshot-vs {
+    display: none;
+  }
+
+  .compare-submit {
+    width: 100%;
+  }
+
+  .compare-files {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .compare-divider {
+    display: grid;
+    place-items: center;
+    min-height: 24px;
+  }
+
+  .result-verdict,
+  .impact-score {
+    width: 100%;
+    min-width: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
+    padding-top: var(--space-4);
+  }
+
+  .result-verdict {
+    align-items: flex-start;
+  }
+
+  .git-ref-grid,
+  .snapshot-fallback-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .git-ref-vs,
+  .snapshot-fallback-grid .snapshot-vs {
+    display: none;
+  }
+
+  .report-evidence-heading,
+  .evidence-footnote {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 600px) {
+  .page-content {
+    padding: 24px var(--space-4) 32px;
+  }
+
+  .topbar {
+    padding-right: var(--space-4);
+    padding-left: var(--space-4);
+  }
+
+  .page-footer {
+    padding-right: var(--space-4);
+    padding-left: var(--space-4);
+  }
+
+  .metric-grid,
+  .detail-metric-grid,
+  .history-metrics,
+  .finding-summary-grid,
+  .graph-stat-grid,
+  .comparison-metric-grid,
+  .dashboard-command-strip,
+  .report-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-hero h1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .hero-actions,
+  .hero-actions .button,
+  .file-hero-actions .button,
+  .impact-select-row .button,
+  .report-evidence-actions .button {
+    width: 100%;
+  }
+
+  .hero-actions,
+  .file-hero-actions,
+  .impact-select-row,
+  .report-evidence-actions {
+    flex-direction: column;
+  }
+
+  .signal-list {
+    grid-template-columns: 1fr;
+  }
+
+  .table-heading {
+    padding: var(--card-padding-compact);
+  }
+
+  .table-tools,
+  .search-field,
+  .filter-button {
+    width: 100%;
+  }
+
+  .table-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .git-detail-grid,
+  .impact-context-values {
+    grid-template-columns: 1fr;
+  }
+
+  .git-detail-grid > div,
+  .impact-context-values > div,
+  .report-summary-grid > div {
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
+    padding-left: var(--card-padding-compact);
+  }
+
+  .git-detail-grid > div:first-child,
+  .impact-context-values > div:first-child,
+  .report-summary-grid > div:first-child {
+    border-top: 0;
+  }
+
+  .scan-steps {
+    width: 100%;
+  }
+
+  .scan-step {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 380px) {
+  .topbar {
+    padding-right: var(--space-3);
+    padding-left: var(--space-3);
+  }
+
+  .breadcrumbs {
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+  }
+
+  .page-content {
+    padding-right: var(--space-3);
+    padding-left: var(--space-3);
+  }
+
+  .panel-heading,
+  .finding-head,
+  .evidence-card-top {
+    gap: var(--space-3);
+  }
+}
+
+/* Chart readability pass: labels stay legible without turning dense data into
+   an overlapping wall of text. Every hidden detail remains available through
+   the point's title and accessible label. */
+.dependency-visual[aria-label] { min-width: 0; }
+.dependency-summary-copy { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
+.dependency-summary-copy strong { font-size: var(--font-size-lg); }
+.dependency-summary-copy span { color: var(--color-text-muted); font-size: var(--font-size-sm); text-align: right; }
+.dependency-node-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; margin: var(--space-3) 0 0; padding: 0; list-style: none; }
+.dependency-node-list li { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(54,61,72,.65); }
+.dependency-node-list a { min-width: 0; overflow: hidden; color: var(--color-text-secondary); font: 11px monospace; text-overflow: ellipsis; white-space: nowrap; }
+.dependency-node-list a:hover { color: var(--color-accent-secondary); }
+.dependency-node-list span { flex: 0 0 auto; color: var(--color-text-muted); font-size: 10px; white-space: nowrap; }
+.trajectory-chart { overflow: visible; padding: 0 8px; }
+.trajectory-point { outline: 0; }
+.trajectory-point:focus-visible i { box-shadow: 0 0 0 4px rgba(112,214,196,.22); }
+.trajectory-point b { font-size: 10px; }
+.trajectory-point small { max-width: 100px; overflow: hidden; font-size: 9px; text-overflow: ellipsis; }
+.trajectory-point:nth-child(2n) small { transform: translateX(-50%) translateY(10px); }
+.trajectory-footer { line-height: 1.35; }
+.radar-axis { max-width: 145px; font-size: 10px; letter-spacing: .04em; white-space: nowrap; }
+.radar-chart svg { height: 260px; }
+.scatter-axis-y, .scatter-axis-x { font-size: 10px; }
+.coverage-scatter { overflow: visible; }
+.scatter-point span { font-size: 10px; }
+.scatter-point small { font-size: 9px; }
+.scatter-point::after { position: absolute; z-index: 8; bottom: calc(100% + 8px); left: 50%; display: none; max-width: min(280px, 42vw); padding: 6px 8px; overflow: hidden; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text); background: var(--color-surface); box-shadow: var(--shadow-card); content: attr(data-label); font: 10px monospace; text-overflow: ellipsis; transform: translateX(-50%); white-space: nowrap; }
+.scatter-point:hover::after, .scatter-point:focus-visible::after { display: block; }
+.delta-axis, .delta-bars-pair i b { font-size: 10px; }
+.delta-bar-group small, .delta-legend { font-size: 10px; }
+.evidence-graph-details { margin-top: 10px; padding: 9px 11px; border-top: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 10px; }
+.evidence-graph-details strong { color: var(--color-text-secondary); }
+.evidence-graph-details ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; max-height: 92px; margin: 6px 0 0; padding-left: 16px; overflow: auto; }
+.evidence-graph-details li { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .dependency-node-list { grid-template-columns: 1fr; }
+  .dependency-summary-copy { align-items: flex-start; flex-direction: column; }
+  .dependency-summary-copy span { text-align: left; }
+  .evidence-graph-details ul { grid-template-columns: 1fr; }
+}
