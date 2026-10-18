@@ -79,6 +79,9 @@ class RepoPilotExperimentTests(unittest.TestCase):
             self.assertEqual(page.status_code, 200)
             self.assertIn(b"Evidence you can", page.data)
             self.assertIn(b"Hotspot precision@5", page.data)
+            self.assertIn(b"evidence-graph-node", page.data)
+            self.assertIn(b"dependency_hub", page.data)
+            self.assertIn(b"cycle_a.py", page.data)
 
             json_download = client.get("/reports/experiments/experiments.json")
             markdown_download = client.get("/reports/experiments/experiments.md")
