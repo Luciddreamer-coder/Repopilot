@@ -135,6 +135,37 @@ class RepoPilotApiTests(unittest.TestCase):
         self.assertIn(b"Warnings", impact_page.data)
         self.assertIn(b"Recent activity", impact_page.data)
 
+    def test_dependency_graph_has_deterministic_relationship_layout(self):
+        self.client.post("/scan", json={"repo_path": str(FIXTURE)})
+
+        first = self.client.get("/api/dependency-graph").get_json()
+        second = self.client.get("/api/dependency-graph").get_json()
+        self.assertEqual(first["layout"], second["layout"])
+        self.assertEqual(first["nodes"], second["nodes"])
+        self.assertEqual(first["edges"], second["edges"])
+
+        self.assertEqual(first["layout"]["algorithm"], "deterministic-layered")
+        self.assertGreater(first["layout"]["width"], 0)
+        self.assertGreater(first["layout"]["height"], 0)
+        nodes = {node["id"]: node for node in first["nodes"]}
+        self.assertEqual(len({(node["x"], node["y"]) for node in nodes.values()}), len(nodes))
+        self.assertTrue(all(node["width"] > 0 and node["height"] > 0 for node in nodes.values()))
+        self.assertTrue(nodes["cycle_a.py"]["is_cycle"])
+        self.assertTrue(nodes["unresolved_import.py"]["is_unresolved"])
+
+        edges = {(edge["source"], edge["target"]): edge for edge in first["edges"]}
+        cycle_edge = edges[("cycle_a.py", "cycle_b.py")]
+        self.assertTrue(cycle_edge["is_cycle"])
+        self.assertTrue(cycle_edge["path"].startswith("M "))
+        self.assertEqual(cycle_edge["metadata"]["relationship"], "static_import")
+        self.assertEqual(first["unresolved_imports"][0]["file"], "unresolved_import.py")
+
+        page = self.client.get("/dependencies", headers={"Accept": "text/html"})
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"architecture-graph", page.data)
+        self.assertIn(b"architecture-edge", page.data)
+        self.assertIn(b"cycle_a.py", page.data)
+
 
 if __name__ == "__main__":
     unittest.main()

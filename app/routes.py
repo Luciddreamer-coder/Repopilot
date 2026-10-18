@@ -627,16 +627,75 @@ def impact_path(file_path: str):
 
 
 def _graph(report) -> dict[str, Any]:
-    nodes = [{
-        "id": item.path,
-        "label": item.path,
-        "language": item.language,
-        "risk_score": item.risk_score,
-        "risk_level": item.risk_level,
-        "unresolved_imports": list(item.unresolved_imports),
-        "cycles": [list(cycle) for cycle in item.dependency_cycles],
-    } for item in report.files]
-    edges = [{"source": item.path, "target": dependency} for item in report.files for dependency in item.dependencies]
+    # Keep the graph view model independent of the decorative CSS layout used
+    # by the first version of the page.  Coordinates are calculated from
+    # sorted paths and the resolved dependency edges, so a report loaded from
+    # SQLite (or constructed with a different file iteration order) produces
+    # the same geometry.
+    graph_files = list(report.files)
+    node_ids = {item.path for item in graph_files}
+    raw_edges = [
+        {"source": item.path, "target": dependency}
+        for item in graph_files
+        for dependency in item.dependencies
+    ]
+    edge_pairs = sorted({(edge["source"], edge["target"]) for edge in raw_edges})
+
+    node_width = 220
+    node_height = 76
+    padding = 32
+    horizontal_gap = 80
+    vertical_gap = 48
+
+    # A small, dependency-free layered layout.  Kahn's ordering gives
+    # dependency-connected nodes useful columns; cyclic components are placed
+    # deterministically in the remaining column rather than looping forever.
+    incoming = {path: 0 for path in node_ids}
+    adjacency: dict[str, list[str]] = {path: [] for path in node_ids}
+    for source, target in edge_pairs:
+        if source not in node_ids or target not in node_ids:
+            continue
+        incoming[target] += 1
+        adjacency[source].append(target)
+    for targets in adjacency.values():
+        targets.sort()
+    ranks = {path: 0 for path in node_ids}
+    queue = sorted(path for path, count in incoming.items() if count == 0)
+    processed: set[str] = set()
+    while queue:
+        source = queue.pop(0)
+        if source in processed:
+            continue
+        processed.add(source)
+        for target in adjacency[source]:
+            ranks[target] = max(ranks[target], ranks[source] + 1)
+            incoming[target] -= 1
+            if incoming[target] == 0:
+                queue.append(target)
+                queue.sort()
+
+    # Nodes in a cycle never reach the zero-incoming queue.  They still get a
+    # stable placement, and any rank reached from an acyclic predecessor is
+    # retained above.
+    for path in sorted(node_ids - processed):
+        ranks[path] = max(ranks[path], 0)
+
+    columns: dict[int, list[str]] = {}
+    for path in sorted(node_ids):
+        columns.setdefault(ranks[path], []).append(path)
+    positions: dict[str, dict[str, int]] = {}
+    for rank in sorted(columns):
+        for row, path in enumerate(columns[rank]):
+            positions[path] = {
+                "x": padding + rank * (node_width + horizontal_gap),
+                "y": padding + row * (node_height + vertical_gap),
+            }
+
+    column_count = max(columns, default=0) + 1
+    row_count = max((len(paths) for paths in columns.values()), default=0)
+    canvas_width = max(960, padding * 2 + column_count * node_width + max(0, column_count - 1) * horizontal_gap)
+    canvas_height = max(360, padding * 2 + row_count * node_height + max(0, row_count - 1) * vertical_gap)
+
     unresolved_by_file = {
         path: list(imports) for path, imports in report.unresolved_imports.items() if imports
     }
@@ -654,6 +713,88 @@ def _graph(report) -> dict[str, Any]:
         {"file": path, "imports": list(imports)}
         for path, imports in sorted(unresolved_by_file.items()) if imports
     ]
+
+    cycle_sets = [set(cycle) for cycle in cycles]
+
+    def cycle_for(source: str, target: str) -> list[str] | None:
+        return next((sorted(component) for component in cycle_sets if source in component and target in component), None)
+
+    def edge_path(source: str, target: str) -> str | None:
+        source_position = positions.get(source)
+        target_position = positions.get(target)
+        if source_position is None or target_position is None:
+            return None
+        source_x, source_y = source_position["x"], source_position["y"]
+        target_x, target_y = target_position["x"], target_position["y"]
+        if source == target:
+            center_y = source_y + node_height // 2
+            right = source_x + node_width
+            return f"M {right} {center_y} C {right + 40} {source_y - 12}, {right + 40} {source_y + node_height + 12}, {right} {center_y + 1}"
+        if target_x > source_x:
+            start = (source_x + node_width, source_y + node_height // 2)
+            finish = (target_x, target_y + node_height // 2)
+        elif target_x < source_x:
+            start = (source_x, source_y + node_height // 2)
+            finish = (target_x + node_width, target_y + node_height // 2)
+        elif target_y >= source_y:
+            start = (source_x + node_width // 2, source_y + node_height)
+            finish = (target_x + node_width // 2, target_y)
+        else:
+            start = (source_x + node_width // 2, source_y)
+            finish = (target_x + node_width // 2, target_y + node_height)
+        return f"M {start[0]} {start[1]} L {finish[0]} {finish[1]}"
+
+    nodes = []
+    for item in graph_files:
+        node_cycles = [list(cycle) for cycle in item.dependency_cycles]
+        if not node_cycles:
+            node_cycles = [list(cycle) for cycle in cycles if item.path in cycle]
+        cycle = bool(node_cycles)
+        unresolved_imports = list(item.unresolved_imports or unresolved_by_file.get(item.path, []))
+        position = positions[item.path]
+        nodes.append({
+            "id": item.path,
+            "label": item.path,
+            "short_label": Path(item.path).name,
+            "language": item.language,
+            "risk_score": item.risk_score,
+            "risk_level": item.risk_level,
+            "unresolved_imports": unresolved_imports,
+            "cycles": node_cycles,
+            "x": position["x"],
+            "y": position["y"],
+            "width": node_width,
+            "height": node_height,
+            "position": dict(position),
+            "dimensions": {"width": node_width, "height": node_height},
+            "is_cycle": cycle,
+            "is_unresolved": bool(unresolved_imports),
+            "cycle": cycle,
+            "unresolved": bool(unresolved_imports),
+        })
+
+    edges = []
+    for edge in raw_edges:
+        source, target = edge["source"], edge["target"]
+        cycle = cycle_for(source, target)
+        unresolved_edge = target not in node_ids
+        metadata = {
+            "relationship": "static_import",
+            "cycle": bool(cycle),
+            "unresolved": unresolved_edge,
+        }
+        edges.append({
+            "source": source,
+            "target": target,
+            "label": "static import",
+            "path": edge_path(source, target),
+            "is_cycle": bool(cycle),
+            "is_unresolved": unresolved_edge,
+            "cycle": bool(cycle),
+            "unresolved": unresolved_edge,
+            "cycle_members": cycle or [],
+            "metadata": metadata,
+        })
     return {
         "view": "dependency_graph",
         "repository": report.repository,
@@ -661,6 +802,17 @@ def _graph(report) -> dict[str, Any]:
         "edges": edges,
         "unresolved_imports": unresolved,
         "cycles": cycles,
+        "layout": {
+            "algorithm": "deterministic-layered",
+            "width": canvas_width,
+            "height": canvas_height,
+            "node_width": node_width,
+            "node_height": node_height,
+            "padding": padding,
+            "horizontal_gap": horizontal_gap,
+            "vertical_gap": vertical_gap,
+            "dimensions": {"width": canvas_width, "height": canvas_height},
+        },
     }
 
 
