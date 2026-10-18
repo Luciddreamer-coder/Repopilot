@@ -1,6 +1,8 @@
 import contextlib
 import io
 import json
+import os
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -69,6 +71,54 @@ class RepoPilotCliTests(unittest.TestCase):
         code, output = self.run_cli("check", str(self.root), "--max-risk", "100", "--max-new-findings", "0")
         self.assertEqual(code, 0)
         self.assertTrue(json.loads(output)["passed"])
+
+    def test_omitted_database_uses_isolated_store(self):
+        configured = self.root / "web.sqlite3"
+        connection = sqlite3.connect(configured)
+        try:
+            connection.execute("CREATE TABLE marker(value TEXT)")
+            connection.execute("INSERT INTO marker(value) VALUES ('untouched')")
+            connection.commit()
+        finally:
+            connection.close()
+        output = io.StringIO()
+        old_value = os.environ.get("REPOPILOT_DATABASE_PATH")
+        os.environ["REPOPILOT_DATABASE_PATH"] = str(configured)
+        try:
+            with contextlib.redirect_stdout(output):
+                code = main(("scan", str(self.root)))
+        finally:
+            if old_value is None:
+                os.environ.pop("REPOPILOT_DATABASE_PATH", None)
+            else:
+                os.environ["REPOPILOT_DATABASE_PATH"] = old_value
+        self.assertEqual(code, 0)
+        connection = sqlite3.connect(configured)
+        try:
+            self.assertEqual(connection.execute("SELECT value FROM marker").fetchone()[0], "untouched")
+            self.assertFalse(connection.execute("SELECT name FROM sqlite_master WHERE name = 'snapshots'").fetchone())
+        finally:
+            connection.close()
+
+    def test_structural_findings_are_included_in_cli_lifecycle(self):
+        (self.root / "unresolved.py").write_text("import missing_package\n", encoding="utf-8")
+        (self.root / "cycle_a.py").write_text("import cycle_b\n", encoding="utf-8")
+        (self.root / "cycle_b.py").write_text("import cycle_a\n", encoding="utf-8")
+        code, output = self.run_cli("findings", str(self.root))
+        self.assertEqual(code, 0)
+        findings = json.loads(output)["findings"]
+        structural = {item["signal"]: item for item in findings if item["signal"] in {"unresolved_imports", "dependency_cycles"}}
+        self.assertIn("unresolved_imports", structural)
+        self.assertIn("dependency_cycles", structural)
+        self.assertTrue(structural["unresolved_imports"]["evidence"])
+        self.assertTrue(structural["dependency_cycles"]["recommendation"])
+
+    def test_markdown_is_utf8_without_replacement_characters(self):
+        (self.root / "café.py").write_text("def café():\n    return '✓'\n", encoding="utf-8")
+        code, output = self.run_cli("report", str(self.root), "--format", "markdown")
+        self.assertEqual(code, 0)
+        self.assertNotIn("\ufffd", output)
+        self.assertIn("café.py", output)
 
 
 if __name__ == "__main__":

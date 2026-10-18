@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import ast
+from copy import deepcopy
 import hashlib
 import os
 import re
 import sqlite3
 import subprocess
 import xml.etree.ElementTree as ET
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
@@ -19,6 +20,8 @@ from .models import FileAnalysis, RepositoryReport, RiskSignal
 SUPPORTED = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rb", ".rs", ".md"}
 SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache", ".pytest_cache"}
 LOW_COVERAGE_THRESHOLD = 80.0
+_SCAN_CACHE_LIMIT = 8
+_SCAN_CACHE: OrderedDict[tuple[object, ...], RepositoryReport] = OrderedDict()
 
 
 def _level(score: int) -> str:
@@ -37,7 +40,7 @@ def _git_file_metrics(root: Path, paths: list[Path]) -> dict[str, dict[str, obje
     for path in paths:
         try:
             output = subprocess.run(
-                ["git", "-C", str(root), "log", "--follow", "--since=90 days ago", "--numstat", "--format=%H%x1f%an%x1f%ad", "--date=iso-strict", "--", str(path.relative_to(root))],
+                ["git", "-C", str(root), "log", "--follow", "--since=90 days ago", "--numstat", "--format=%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%s", "--date=iso-strict", "--", str(path.relative_to(root))],
                 capture_output=True, text=True, timeout=2, check=False,
             ).stdout
             commits = 0
@@ -45,11 +48,24 @@ def _git_file_metrics(root: Path, paths: list[Path]) -> dict[str, dict[str, obje
             lines_deleted = 0
             authors: set[str] = set()
             last_changed: str | None = None
+            last_commit: str | None = None
+            last_commit_short: str | None = None
+            last_commit_subject: str | None = None
+            last_author: str | None = None
+            last_author_email: str | None = None
             for line in output.splitlines():
                 if "\x1f" in line:
-                    _, author, changed_at = line.split("\x1f", 2)
+                    fields = line.split("\x1f", 5)
+                    if len(fields) < 6:
+                        continue
+                    last_commit = last_commit or fields[0].strip()
+                    last_commit_short = last_commit_short or fields[1].strip()
+                    last_author = last_author or fields[2].strip()
+                    last_author_email = last_author_email or fields[3].strip()
+                    changed_at = fields[4]
+                    last_commit_subject = last_commit_subject or fields[5].strip()
                     commits += 1
-                    authors.add(author.strip())
+                    authors.add(fields[2].strip())
                     last_changed = last_changed or changed_at.strip()
                     continue
                 parts = line.split("\t")
@@ -68,6 +84,11 @@ def _git_file_metrics(root: Path, paths: list[Path]) -> dict[str, dict[str, obje
                 "lines_deleted": lines_deleted,
                 "authors": len(authors),
                 "last_changed": last_changed,
+                "last_commit": last_commit,
+                "last_commit_short": last_commit_short,
+                "last_commit_subject": last_commit_subject,
+                "last_author": last_author,
+                "last_author_email": last_author_email,
             }
         except (OSError, subprocess.SubprocessError, ValueError):
             result[path.as_posix()] = {}
@@ -466,6 +487,35 @@ def _dependency_cycles(dependencies: dict[str, list[str]]) -> list[list[str]]:
     return sorted(cycles)
 
 
+def _scan_cache_key(root: Path, paths: list[Path]) -> tuple[object, ...]:
+    """Build a bounded, local cache key that invalidates on normal file edits."""
+    signature = []
+    for path in paths:
+        try:
+            stat = path.stat()
+            signature.append((path.relative_to(root).as_posix(), stat.st_mtime_ns, stat.st_size))
+        except OSError:
+            signature.append((path.relative_to(root).as_posix(), None, None))
+    metadata = []
+    for name in ("coverage.xml", "lcov.info", ".coverage"):
+        candidate = root / name
+        try:
+            stat = candidate.stat()
+            metadata.append((name, stat.st_mtime_ns, stat.st_size))
+        except OSError:
+            metadata.append((name, None, None))
+    head = _git_value(root, ["rev-parse", "HEAD"], "") if (root / ".git").exists() else ""
+    return (str(root.resolve()), head, tuple(signature), tuple(metadata))
+
+
+def _cache_report(key: tuple[object, ...], report: RepositoryReport) -> RepositoryReport:
+    _SCAN_CACHE[key] = deepcopy(report)
+    _SCAN_CACHE.move_to_end(key)
+    while len(_SCAN_CACHE) > _SCAN_CACHE_LIMIT:
+        _SCAN_CACHE.popitem(last=False)
+    return report
+
+
 def scan_repository(repository_path: str | os.PathLike[str] | None) -> RepositoryReport:
     """Scan a local path, falling back to deterministic demo data if absent/invalid."""
     if not repository_path or str(repository_path).strip().lower() in {"demo", "demo://repo-pilot", "example"}:
@@ -478,6 +528,11 @@ def scan_repository(repository_path: str | os.PathLike[str] | None) -> Repositor
     paths = paths[:250]
     if not paths:
         return demo_report()
+    cache_key = _scan_cache_key(root, paths)
+    cached = _SCAN_CACHE.get(cache_key)
+    if cached is not None:
+        _SCAN_CACHE.move_to_end(cache_key)
+        return deepcopy(cached)
     rel_paths = {path.relative_to(root).as_posix() for path in paths}
     git_metrics = _git_file_metrics(root, paths)
     coverage = _load_coverage(root, rel_paths)
@@ -542,6 +597,11 @@ def scan_repository(repository_path: str | os.PathLike[str] | None) -> Repositor
             rel, _language(path.suffix), lines, functions, dependencies[rel], sorted(dependents[rel]),
             risk, _level(risk), signals, _summary(risk, len(dependents[rel])), content, change_count,
             lines_added, lines_deleted, authors, str(last_changed) if last_changed else None,
+            str(file_git.get("last_commit")) if file_git.get("last_commit") else None,
+            str(file_git.get("last_commit_short")) if file_git.get("last_commit_short") else None,
+            str(file_git.get("last_commit_subject")) if file_git.get("last_commit_subject") else None,
+            str(file_git.get("last_author")) if file_git.get("last_author") else None,
+            str(file_git.get("last_author_email")) if file_git.get("last_author_email") else None,
             float(file_coverage["percent"]) if file_coverage else None,
             int(file_coverage["covered_lines"]) if file_coverage else None,
             int(file_coverage["total_lines"]) if file_coverage else None,
@@ -549,7 +609,7 @@ def scan_repository(repository_path: str | os.PathLike[str] | None) -> Repositor
             str(file_coverage["source"]) if file_coverage else None,
             unresolved_imports.get(rel, []), cycles_by_file.get(rel, []),
         ))
-    return RepositoryReport(
+    report = RepositoryReport(
         repository={"name": root.name, "path": str(root), "branch": _git_branch(root), "commit": _git_commit(root), "git": _git_repository_metrics(root)},
         files=analyses,
         generated_at=datetime.now(timezone.utc).isoformat(),
@@ -557,6 +617,7 @@ def scan_repository(repository_path: str | os.PathLike[str] | None) -> Repositor
         unresolved_imports={path: imports for path, imports in unresolved_imports.items() if imports},
         dependency_cycles=cycles,
     )
+    return _cache_report(cache_key, report)
 
 
 def _language(suffix: str) -> str:
@@ -585,3 +646,141 @@ def _git_branch(root: Path) -> str:
 
 def _git_commit(root: Path) -> str:
     return _git_value(root, ["rev-parse", "--short", "HEAD"], "uncommitted")
+
+
+def _git_command(root: Path, args: list[str], *, timeout: float = 3.0) -> tuple[str, str, int]:
+    """Run a read-only Git command and keep stderr out of API responses."""
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        return completed.stdout, completed.stderr, completed.returncode
+    except (OSError, subprocess.SubprocessError) as error:
+        return "", str(error), 1
+
+
+def _git_commit_evidence(root: Path, commit: str) -> dict[str, str | None]:
+    output, _, status = _git_command(root, ["show", "-s", "--format=%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%s", commit])
+    fields = output.strip().split("\x1f", 5) if status == 0 else []
+    if len(fields) < 6:
+        return {"commit": commit, "short_commit": commit[:12], "author": None, "author_email": None, "date": None, "subject": None}
+    return {
+        "commit": fields[0],
+        "short_commit": fields[1],
+        "author": fields[2],
+        "author_email": fields[3],
+        "date": fields[4],
+        "subject": fields[5],
+    }
+
+
+def _git_ref(root: Path, ref: str) -> str | None:
+    if not ref or "\x00" in ref:
+        return None
+    output, _, status = _git_command(root, ["rev-parse", "--verify", f"{ref}^{{commit}}"])
+    return output.strip() if status == 0 and output.strip() else None
+
+
+def _git_branch_for_ref(root: Path, ref: str) -> str | None:
+    output, _, status = _git_command(root, ["symbolic-ref", "--quiet", "--short", ref])
+    if status == 0 and output.strip():
+        return output.strip()
+    return ref if ref and _git_ref(root, ref) else None
+
+
+def _git_diff_status(root: Path, base: str, target: str) -> list[dict[str, object]]:
+    """Return deterministic status/numstat entries for a two-ref diff."""
+    status_output, _, status_code = _git_command(root, ["diff", "--name-status", "--find-renames", "-z", base, target, "--"])
+    if status_code != 0:
+        return []
+    tokens = [token for token in status_output.split("\x00") if token]
+    statuses: list[tuple[str, str, str | None]] = []
+    index = 0
+    while index < len(tokens):
+        status = tokens[index]
+        index += 1
+        if status[:1] in {"R", "C"} and index + 1 < len(tokens):
+            old_path, new_path = tokens[index], tokens[index + 1]
+            index += 2
+            statuses.append((status, new_path, old_path))
+        elif index < len(tokens):
+            statuses.append((status, tokens[index], None))
+            index += 1
+
+    numstat_output, _, numstat_code = _git_command(root, ["diff", "--numstat", "--no-renames", "-z", base, target, "--"])
+    numstats: dict[str, tuple[int, int]] = {}
+    if numstat_code == 0:
+        for token in (token for token in numstat_output.split("\x00") if token):
+            fields = token.split("\t", 2)
+            if len(fields) != 3:
+                continue
+            try:
+                added = 0 if fields[0] == "-" else int(fields[0])
+                deleted = 0 if fields[1] == "-" else int(fields[1])
+            except ValueError:
+                continue
+            numstats[fields[2]] = (added, deleted)
+
+    result: list[dict[str, object]] = []
+    for raw_status, path, old_path in statuses:
+        added, deleted = numstats.get(path, (0, 0))
+        if raw_status[:1] == "R" and old_path:
+            old_added, old_deleted = numstats.get(old_path, (0, 0))
+            added, deleted = added + old_added, deleted + old_deleted
+        result.append({
+            "path": path,
+            "status": raw_status[:1] or "M",
+            "status_detail": raw_status,
+            "old_path": old_path,
+            "lines_added": added,
+            "lines_deleted": deleted,
+        })
+    return result
+
+
+def git_compare(repository_path: str | os.PathLike[str] | None, base: str | None, target: str | None) -> dict[str, object]:
+    """Compare two local Git refs without checking out either side.
+
+    This is intentionally read-only and returns a stable ``available`` flag so
+    non-Git scans and the built-in demo can keep using the existing APIs.
+    """
+    root = Path(repository_path).expanduser() if repository_path else None
+    unavailable = {"available": False, "base_ref": base, "target_ref": target, "changed_files": [], "commits": [], "lines_added": 0, "lines_deleted": 0}
+    if root is None or not root.is_dir() or not (root / ".git").exists():
+        return {**unavailable, "reason": "repository_is_not_git"}
+    base_ref, target_ref = base or "HEAD~1", target or "HEAD"
+    base_commit, target_commit = _git_ref(root, base_ref), _git_ref(root, target_ref)
+    if not base_commit or not target_commit:
+        return {**unavailable, "reason": "unknown_git_ref"}
+
+    changed_files = _git_diff_status(root, base_commit, target_commit)
+    log_output, _, _ = _git_command(root, ["log", "--format=%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%s", f"{base_commit}..{target_commit}"])
+    commits = []
+    for line in log_output.splitlines():
+        fields = line.split("\x1f", 5)
+        if len(fields) == 6:
+            commits.append({"commit": fields[0], "short_commit": fields[1], "author": fields[2], "author_email": fields[3], "date": fields[4], "subject": fields[5]})
+    lines_added = sum(int(item["lines_added"]) for item in changed_files)
+    lines_deleted = sum(int(item["lines_deleted"]) for item in changed_files)
+    base_evidence = _git_commit_evidence(root, base_commit)
+    target_evidence = _git_commit_evidence(root, target_commit)
+    return {
+        "available": True,
+        "repository": str(root),
+        "base_ref": base_ref,
+        "target_ref": target_ref,
+        "base_branch": _git_branch_for_ref(root, base_ref),
+        "target_branch": _git_branch_for_ref(root, target_ref),
+        "base_commit": base_evidence,
+        "target_commit": target_evidence,
+        "changed_files": changed_files,
+        "changed_file_count": len(changed_files),
+        "lines_added": lines_added,
+        "lines_deleted": lines_deleted,
+        "commits": commits,
+        "commit_count": len(commits),
+    }

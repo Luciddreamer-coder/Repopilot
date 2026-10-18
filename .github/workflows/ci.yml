@@ -20,3 +20,5 @@ jobs:
         run: make test
       - name: Run CLI quality gate against demo
         run: python repopilot_cli.py check demo --max-risk 90 --max-new-findings 0
+      - name: Run controlled experiment suite
+        run: python experiments/run_experiments.py --check

@@ -40,6 +40,11 @@ class FileAnalysis:
     lines_deleted: int = 0
     authors: int = 0
     last_changed: str | None = None
+    last_commit: str | None = None
+    last_commit_short: str | None = None
+    last_commit_subject: str | None = None
+    last_author: str | None = None
+    last_author_email: str | None = None
     coverage_percent: float | None = None
     coverage_covered_lines: int | None = None
     coverage_total_lines: int | None = None
@@ -54,6 +59,7 @@ class FileAnalysis:
         if self.coverage_percent is None:
             return None
         return {
+            "state": "measured",
             "percent": self.coverage_percent,
             "percentage": self.coverage_percent,
             "line_rate": self.coverage_percent / 100,
@@ -81,6 +87,11 @@ class FileAnalysis:
                 "lines_deleted": self.lines_deleted,
                 "authors": self.authors,
                 "last_changed": self.last_changed,
+                "last_commit": self.last_commit,
+                "last_commit_short": self.last_commit_short,
+                "last_commit_subject": self.last_commit_subject,
+                "last_author": self.last_author,
+                "last_author_email": self.last_author_email,
             },
             "coverage": self.coverage,
             # Keep the scalar names convenient for API consumers that do not
@@ -90,6 +101,7 @@ class FileAnalysis:
             "coverage_total_lines": self.coverage_total_lines,
             "coverage_missing_lines": self.coverage_missing_lines,
             "coverage_source": self.coverage_source,
+            "coverage_state": "measured" if self.coverage_percent is not None else "not_detected",
             "unresolved_imports": list(self.unresolved_imports),
             "dependency_cycles": [list(cycle) for cycle in self.dependency_cycles],
         }

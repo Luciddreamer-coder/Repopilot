@@ -1,0 +1,34 @@
+{
+  "description": "A compact, reproducible history for the annotated experiment fixture.",
+  "branch": "main",
+  "commits": [
+    {
+      "id": "fixture-0001",
+      "subject": "establish dependency graph and healthy baseline",
+      "changed_files": [
+        {"path": "healthy.py", "status": "A", "lines_added": 8, "lines_deleted": 0},
+        {"path": "dependency_hub.py", "status": "A", "lines_added": 16, "lines_deleted": 0},
+        {"path": "graph_entry.py", "status": "A", "lines_added": 7, "lines_deleted": 0}
+      ]
+    },
+    {
+      "id": "fixture-0002",
+      "subject": "add cyclic and unresolved import examples",
+      "changed_files": [
+        {"path": "cycle_a.py", "status": "A", "lines_added": 4, "lines_deleted": 0},
+        {"path": "cycle_b.py", "status": "A", "lines_added": 4, "lines_deleted": 0},
+        {"path": "unresolved_import.py", "status": "A", "lines_added": 6, "lines_deleted": 0}
+      ]
+    },
+    {
+      "id": "fixture-0003",
+      "subject": "introduce hotspot candidates and consumer reach",
+      "changed_files": [
+        {"path": "complex_hotspot.py", "status": "A", "lines_added": 31, "lines_deleted": 0},
+        {"path": "refactor_candidate.py", "status": "A", "lines_added": 20, "lines_deleted": 0},
+        {"path": "hub_consumer.py", "status": "A", "lines_added": 9, "lines_deleted": 0},
+        {"path": "low_coverage.py", "status": "A", "lines_added": 12, "lines_deleted": 0}
+      ]
+    }
+  ]
+}

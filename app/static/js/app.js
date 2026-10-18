@@ -96,5 +96,50 @@
         shortcutWaiting = false;
       }, 900);
     }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      openCommandPalette();
+    }
+  });
+
+  const commandPalette = $('[data-command-palette]');
+  const commandSearch = $('[data-command-search]');
+  const commandItems = $$('[data-command-item]');
+  const openCommandPalette = () => {
+    if (!commandPalette) return;
+    commandPalette.hidden = false;
+    commandSearch?.focus();
+  };
+  const closeCommandPalette = () => {
+    if (commandPalette) commandPalette.hidden = true;
+  };
+  $('[data-command-open]')?.addEventListener('click', openCommandPalette);
+  $('[data-command-close]')?.addEventListener('click', closeCommandPalette);
+  commandSearch?.addEventListener('input', (event) => {
+    const query = event.target.value.toLowerCase().trim();
+    commandItems.forEach((item) => { item.hidden = query && !item.innerText.toLowerCase().includes(query); });
+  });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeCommandPalette(); });
+
+  $$('[data-weight-range]').forEach((range) => {
+    const output = range.closest('.weight-row')?.querySelector('output');
+    const formulaTarget = document.querySelector(`[data-formula-${range.name === 'change_frequency' ? 'change' : range.name}]`);
+    range.addEventListener('input', () => {
+      if (output) output.textContent = `${range.value}%`;
+      if (formulaTarget) formulaTarget.textContent = `${range.value}%`;
+    });
+  });
+  $('[data-weight-form]')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const status = $('[data-weight-status]');
+    try {
+      const response = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'Could not update the model.');
+      if (status) status.textContent = 'Model updated. New scans will use these weights.';
+    } catch (error) {
+      if (status) status.textContent = error.message;
+    }
   });
 })();

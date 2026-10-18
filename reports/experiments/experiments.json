@@ -1,0 +1,459 @@
+{
+  "A": {
+    "annotated_hotspots": [
+      "complex_hotspot.py",
+      "dependency_hub.py",
+      "low_coverage.py",
+      "refactor_candidate.py"
+    ],
+    "false_positives": [
+      "cycle_a.py"
+    ],
+    "hits": [
+      "complex_hotspot.py",
+      "dependency_hub.py",
+      "refactor_candidate.py",
+      "low_coverage.py"
+    ],
+    "missed_hotspots": [],
+    "name": "hotspot precision@5",
+    "precision_at_5": 0.8,
+    "top_5": [
+      "complex_hotspot.py",
+      "dependency_hub.py",
+      "refactor_candidate.py",
+      "low_coverage.py",
+      "cycle_a.py"
+    ]
+  },
+  "B": {
+    "after": {
+      "complexity_score": 3,
+      "dependencies": [],
+      "lines": 5,
+      "risk_level": "low",
+      "risk_score": 13
+    },
+    "before": {
+      "complexity_score": 43,
+      "dependencies": [
+        "complex_hotspot.py"
+      ],
+      "lines": 31,
+      "risk_level": "low",
+      "risk_score": 37
+    },
+    "complexity_delta": -40,
+    "fixture_unchanged": true,
+    "improved": true,
+    "name": "before/after refactor scan comparison",
+    "risk_delta": -24,
+    "target": "refactor_candidate.py",
+    "temporary_copy_used": true
+  },
+  "C": {
+    "detected_cycles": [
+      [
+        "cycle_a.py",
+        "cycle_b.py"
+      ]
+    ],
+    "detected_edges": [
+      {
+        "source": "complex_hotspot.py",
+        "target": "healthy.py"
+      },
+      {
+        "source": "cycle_a.py",
+        "target": "cycle_b.py"
+      },
+      {
+        "source": "cycle_b.py",
+        "target": "cycle_a.py"
+      },
+      {
+        "source": "dependency_hub.py",
+        "target": "complex_hotspot.py"
+      },
+      {
+        "source": "dependency_hub.py",
+        "target": "cycle_a.py"
+      },
+      {
+        "source": "dependency_hub.py",
+        "target": "healthy.py"
+      },
+      {
+        "source": "dependency_hub.py",
+        "target": "refactor_candidate.py"
+      },
+      {
+        "source": "graph_entry.py",
+        "target": "dependency_hub.py"
+      },
+      {
+        "source": "hub_consumer.py",
+        "target": "complex_hotspot.py"
+      },
+      {
+        "source": "hub_consumer.py",
+        "target": "dependency_hub.py"
+      },
+      {
+        "source": "refactor_candidate.py",
+        "target": "complex_hotspot.py"
+      },
+      {
+        "source": "unresolved_import.py",
+        "target": "dependency_hub.py"
+      }
+    ],
+    "detected_unresolved_imports": {
+      "unresolved_import.py": [
+        "missing_local_package",
+        "third_party_missing"
+      ]
+    },
+    "expected_cycles": [
+      [
+        "cycle_a.py",
+        "cycle_b.py"
+      ]
+    ],
+    "expected_edges": [
+      {
+        "source": "complex_hotspot.py",
+        "target": "healthy.py"
+      },
+      {
+        "source": "cycle_a.py",
+        "target": "cycle_b.py"
+      },
+      {
+        "source": "cycle_b.py",
+        "target": "cycle_a.py"
+      },
+      {
+        "source": "dependency_hub.py",
+        "target": "complex_hotspot.py"
+      },
+      {
+        "source": "dependency_hub.py",
+        "target": "cycle_a.py"
+      },
+      {
+        "source": "dependency_hub.py",
+        "target": "healthy.py"
+      },
+      {
+        "source": "dependency_hub.py",
+        "target": "refactor_candidate.py"
+      },
+      {
+        "source": "graph_entry.py",
+        "target": "dependency_hub.py"
+      },
+      {
+        "source": "hub_consumer.py",
+        "target": "complex_hotspot.py"
+      },
+      {
+        "source": "hub_consumer.py",
+        "target": "dependency_hub.py"
+      },
+      {
+        "source": "refactor_candidate.py",
+        "target": "complex_hotspot.py"
+      },
+      {
+        "source": "unresolved_import.py",
+        "target": "dependency_hub.py"
+      }
+    ],
+    "expected_unresolved_imports": {
+      "unresolved_import.py": [
+        "missing_local_package",
+        "third_party_missing"
+      ]
+    },
+    "matches": true,
+    "missing_edges": [],
+    "name": "dependency graph detection",
+    "unexpected_edges": []
+  },
+  "D": {
+    "balanced_top_5_stable_count": 6,
+    "configurations": {
+      "balanced": {
+        "ranking": [
+          {
+            "path": "complex_hotspot.py",
+            "rank": 1,
+            "score": 72.1
+          },
+          {
+            "path": "dependency_hub.py",
+            "rank": 2,
+            "score": 62.85
+          },
+          {
+            "path": "refactor_candidate.py",
+            "rank": 3,
+            "score": 37.2
+          },
+          {
+            "path": "low_coverage.py",
+            "rank": 4,
+            "score": 32.55
+          },
+          {
+            "path": "cycle_a.py",
+            "rank": 5,
+            "score": 27.45
+          },
+          {
+            "path": "cycle_b.py",
+            "rank": 6,
+            "score": 21.45
+          },
+          {
+            "path": "healthy.py",
+            "rank": 7,
+            "score": 16.1
+          },
+          {
+            "path": "unresolved_import.py",
+            "rank": 8,
+            "score": 13.65
+          },
+          {
+            "path": "hub_consumer.py",
+            "rank": 9,
+            "score": 10.8
+          },
+          {
+            "path": "graph_entry.py",
+            "rank": 10,
+            "score": 4.95
+          }
+        ],
+        "top_5": [
+          "complex_hotspot.py",
+          "dependency_hub.py",
+          "refactor_candidate.py",
+          "low_coverage.py",
+          "cycle_a.py"
+        ],
+        "top_5_overlap_with_balanced": 1.0,
+        "weights": {
+          "change_frequency": 0.25,
+          "complexity": 0.45,
+          "dependency_reach": 0.3
+        }
+      },
+      "change_heavy": {
+        "ranking": [
+          {
+            "path": "complex_hotspot.py",
+            "rank": 1,
+            "score": 47.6
+          },
+          {
+            "path": "refactor_candidate.py",
+            "rank": 2,
+            "score": 34.8
+          },
+          {
+            "path": "dependency_hub.py",
+            "rank": 3,
+            "score": 34.6
+          },
+          {
+            "path": "cycle_a.py",
+            "rank": 4,
+            "score": 31.8
+          },
+          {
+            "path": "low_coverage.py",
+            "rank": 5,
+            "score": 30.6
+          },
+          {
+            "path": "cycle_b.py",
+            "rank": 6,
+            "score": 27.8
+          },
+          {
+            "path": "unresolved_import.py",
+            "rank": 7,
+            "score": 23.0
+          },
+          {
+            "path": "healthy.py",
+            "rank": 8,
+            "score": 15.2
+          },
+          {
+            "path": "hub_consumer.py",
+            "rank": 9,
+            "score": 6.4
+          },
+          {
+            "path": "graph_entry.py",
+            "rank": 10,
+            "score": 3.0
+          }
+        ],
+        "top_5": [
+          "complex_hotspot.py",
+          "refactor_candidate.py",
+          "dependency_hub.py",
+          "cycle_a.py",
+          "low_coverage.py"
+        ],
+        "top_5_overlap_with_balanced": 1.0,
+        "weights": {
+          "change_frequency": 0.6,
+          "complexity": 0.2,
+          "dependency_reach": 0.2
+        }
+      },
+      "complexity_heavy": {
+        "ranking": [
+          {
+            "path": "complex_hotspot.py",
+            "rank": 1,
+            "score": 82.7
+          },
+          {
+            "path": "dependency_hub.py",
+            "rank": 2,
+            "score": 67.45
+          },
+          {
+            "path": "low_coverage.py",
+            "rank": 3,
+            "score": 40.05
+          },
+          {
+            "path": "refactor_candidate.py",
+            "rank": 4,
+            "score": 39.3
+          },
+          {
+            "path": "cycle_a.py",
+            "rank": 5,
+            "score": 20.55
+          },
+          {
+            "path": "cycle_b.py",
+            "rank": 6,
+            "score": 16.55
+          },
+          {
+            "path": "healthy.py",
+            "rank": 7,
+            "score": 11.6
+          },
+          {
+            "path": "hub_consumer.py",
+            "rank": 8,
+            "score": 10.0
+          },
+          {
+            "path": "unresolved_import.py",
+            "rank": 9,
+            "score": 9.95
+          },
+          {
+            "path": "graph_entry.py",
+            "rank": 10,
+            "score": 4.35
+          }
+        ],
+        "top_5": [
+          "complex_hotspot.py",
+          "dependency_hub.py",
+          "low_coverage.py",
+          "refactor_candidate.py",
+          "cycle_a.py"
+        ],
+        "top_5_overlap_with_balanced": 1.0,
+        "weights": {
+          "change_frequency": 0.15,
+          "complexity": 0.65,
+          "dependency_reach": 0.2
+        }
+      },
+      "reach_heavy": {
+        "ranking": [
+          {
+            "path": "dependency_hub.py",
+            "rank": 1,
+            "score": 79.6
+          },
+          {
+            "path": "complex_hotspot.py",
+            "rank": 2,
+            "score": 70.1
+          },
+          {
+            "path": "cycle_a.py",
+            "rank": 3,
+            "score": 40.35
+          },
+          {
+            "path": "refactor_candidate.py",
+            "rank": 4,
+            "score": 34.35
+          },
+          {
+            "path": "healthy.py",
+            "rank": 5,
+            "score": 28.25
+          },
+          {
+            "path": "cycle_b.py",
+            "rank": 6,
+            "score": 27.35
+          },
+          {
+            "path": "hub_consumer.py",
+            "rank": 7,
+            "score": 17.2
+          },
+          {
+            "path": "low_coverage.py",
+            "rank": 8,
+            "score": 15.75
+          },
+          {
+            "path": "unresolved_import.py",
+            "rank": 9,
+            "score": 13.55
+          },
+          {
+            "path": "graph_entry.py",
+            "rank": 10,
+            "score": 8.4
+          }
+        ],
+        "top_5": [
+          "dependency_hub.py",
+          "complex_hotspot.py",
+          "cycle_a.py",
+          "refactor_candidate.py",
+          "healthy.py"
+        ],
+        "top_5_overlap_with_balanced": 0.8,
+        "weights": {
+          "change_frequency": 0.15,
+          "complexity": 0.2,
+          "dependency_reach": 0.65
+        }
+      }
+    },
+    "name": "ranking robustness across weight configurations"
+  },
+  "fixture": "fixtures/experiment_repo"
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b1020">
+  <meta name="theme-color" content="#171A20">
   <meta name="description" content="RepoPilot repository intelligence and risk analysis">
   <title>{% block title %}RepoPilot{% endblock %} · RepoPilot</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -58,10 +58,25 @@
         <a class="nav-link {% if active_page|default('') == 'compare' %}is-active{% endif %}" href="/compare">
           <svg aria-hidden="true"><use href="#i-compare"></use></svg><span>Compare files</span>
         </a>
+        <a class="nav-link {% if active_page|default('') == 'history' %}is-active{% endif %}" href="/history">
+          <svg aria-hidden="true"><use href="#i-refresh"></use></svg><span>Scan history</span>
+        </a>
       </nav>
 
       <nav class="nav-section nav-section-files" aria-label="Repository">
         <span class="nav-label">Repository</span>
+        <a class="nav-link {% if active_page|default('') == 'findings' %}is-active{% endif %}" href="/findings">
+          <svg aria-hidden="true"><use href="#i-alert"></use></svg><span>Findings</span>
+        </a>
+        <a class="nav-link {% if active_page|default('') == 'dependencies' %}is-active{% endif %}" href="/dependencies">
+          <svg aria-hidden="true"><use href="#i-compare"></use></svg><span>Dependency map</span>
+        </a>
+        <a class="nav-link {% if active_page|default('') == 'impact' %}is-active{% endif %}" href="/impact">
+          <svg aria-hidden="true"><use href="#i-arrow-right"></use></svg><span>Impact preview</span>
+        </a>
+        <a class="nav-link {% if active_page|default('') == 'experiments' %}is-active{% endif %}" href="/experiments">
+          <svg aria-hidden="true"><use href="#i-check"></use></svg><span>Evidence center</span>
+        </a>
         <a class="nav-link" href="#risk-table" data-scroll-target="risk-table">
           <svg aria-hidden="true"><use href="#i-file"></use></svg><span>File explorer</span>
         </a>
@@ -88,6 +103,7 @@
           <div class="breadcrumbs"><a href="/dashboard">Workspace</a><span>/</span><span>{% block breadcrumb %}Overview{% endblock %}</span></div>
         </div>
         <div class="topbar-actions">
+          <button class="command-trigger" type="button" data-command-open><kbd>⌘</kbd><span>Command</span><kbd>K</kbd></button>
           <span class="last-scan"><span class="status-dot"></span> <span class="hide-mobile">Last scan</span> {{ generated_at|default('just now', true) }}</span>
           <a class="avatar" href="#profile" aria-label="Account menu">SP</a>
         </div>
@@ -102,6 +118,20 @@
       </div>
       <footer class="page-footer"><span>RepoPilot <span class="muted">· repository intelligence</span></span><span class="footer-shortcuts"><kbd>?</kbd> Shortcuts</span></footer>
     </main>
+  </div>
+  <div class="command-palette" data-command-palette hidden>
+    <div class="command-backdrop" data-command-close></div>
+    <section class="command-dialog" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div class="command-search"><svg aria-hidden="true"><use href="#i-search"></use></svg><input type="search" placeholder="Search RepoPilot…" data-command-search autocomplete="off"><kbd>ESC</kbd></div>
+      <div class="command-list" data-command-list>
+        <a href="/dashboard" data-command-item><span class="command-icon">⌁</span><span><strong>Open overview</strong><small>See the Risk Radar</small></span><kbd>G O</kbd></a>
+        <a href="/scan" data-command-item><span class="command-icon">＋</span><span><strong>Run a new scan</strong><small>Analyze a repository</small></span><kbd>G S</kbd></a>
+        <a href="/findings" data-command-item><span class="command-icon">!</span><span><strong>Review findings</strong><small>Evidence-backed warnings</small></span></a>
+        <a href="/experiments" data-command-item><span class="command-icon">✓</span><span><strong>Open evidence center</strong><small>Review controlled validation results</small></span></a>
+        <a href="/history" data-command-item><span class="command-icon">◷</span><span><strong>Scan history</strong><small>Compare repository snapshots</small></span></a>
+        <a href="/api/report/markdown" data-command-item><span class="command-icon">↓</span><span><strong>Export Markdown report</strong><small>Download the current analysis</small></span></a>
+      </div>
+    </section>
   </div>
   <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
   {% block scripts %}{% endblock %}

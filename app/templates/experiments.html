@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% set active_page = 'experiments' %}
+{% set evidence = experiments|default({}, true) %}
+{% set experiment_a = evidence.A|default({}, true) %}
+{% set experiment_b = evidence.B|default({}, true) %}
+{% set experiment_c = evidence.C|default({}, true) %}
+{% set experiment_d = evidence.D|default({}, true) %}
+{% set json_url = experiments_json_url|default(experiments_json_download_url|default(evidence.json_url|default(evidence.json_download_url|default('/reports/experiments/experiments.json', true), true), true), true) %}
+{% set markdown_url = experiments_markdown_url|default(experiments_markdown_download_url|default(evidence.markdown_url|default(evidence.markdown_download_url|default('/reports/experiments/experiments.md', true), true), true), true) %}
+{% block title %}Evidence Center{% endblock %}
+{% block breadcrumb %}Evidence Center{% endblock %}
+{% block content %}
+  <section class="page-hero experiments-hero">
+    <div>
+      <div class="eyebrow eyebrow-green"><span class="pulse-dot"></span> Controlled validation</div>
+      <h1>Evidence you can <span class="gradient-text">explain.</span></h1>
+      <p class="hero-copy">Four focused experiments show how RepoPilot ranks risk, predicts safe refactors, and maps dependency signals on a known fixture.</p>
+    </div>
+    <div class="hero-actions">
+      <a class="button button-secondary" href="{{ json_url }}" download><svg aria-hidden="true"><use href="#i-download"></use></svg> Download JSON</a>
+      <a class="button button-primary" href="{{ markdown_url }}" download><svg aria-hidden="true"><use href="#i-download"></use></svg> Read Markdown</a>
+    </div>
+  </section>
+
+  <section class="evidence-overview" aria-label="Evidence summary">
+    <div class="evidence-overview-copy"><span class="eyebrow">Fixture validation</span><h2>Signals with a paper trail</h2><p>Use these results to add context to a review. They are deterministic fixture checks, not a substitute for reading the affected source.</p></div>
+    <div class="evidence-overview-stat"><strong>{{ experiment_a.precision_at_5|default('—', true) }}</strong><span>hotspot precision@5</span></div>
+    <div class="evidence-overview-stat"><strong>{{ 'Pass' if experiment_c.matches|default(false, true) else 'Review' }}</strong><span>dependency checks</span></div>
+    <div class="evidence-overview-stat"><strong>{{ experiment_d.balanced_top_5_stable_count|default('—', true) }}</strong><span>stable ranking runs</span></div>
+  </section>
+
+  <section class="evidence-grid" aria-label="Controlled experiments">
+    <article class="panel evidence-card evidence-card-wide">
+      <div class="evidence-card-top"><div><span class="evidence-index">A</span><span class="eyebrow">Ranking quality</span><h2>Hotspot precision@5</h2></div><span class="evidence-status is-good">Validated</span></div>
+      <p>RepoPilot’s five highest-ranked files contain {{ experiment_a.hits|default([], true)|length }} of the annotated hotspots.</p>
+      <div class="evidence-score"><strong>{{ experiment_a.precision_at_5|default('—', true) }}</strong><span>precision@5</span><span class="evidence-meter"><i style="width: {{ (experiment_a.precision_at_5|default(0, true) * 100)|round(0) }}%"></i></span></div>
+      <div class="evidence-list"><span class="evidence-list-label">Top five ranked files</span>{% for path in experiment_a.top_5|default([], true) %}<span><b>{{ '%02d'|format(loop.index) }}</b>{{ path }}{% if path in experiment_a.hits|default([], true) %}<em>hit</em>{% else %}<em class="is-review">review</em>{% endif %}</span>{% else %}<span class="evidence-empty">No ranking results supplied.</span>{% endfor %}</div>
+      <div class="evidence-callout"><strong>Review candidate:</strong> {{ experiment_a.false_positives|default([], true)|join(', ') or 'none' }}. This is intentionally visible so the ranking can be challenged rather than treated as a guaranteed bug detector.</div>
+    </article>
+
+    <article class="panel evidence-card">
+      <div class="evidence-card-top"><div><span class="evidence-index">B</span><span class="eyebrow">Safe refactor</span><h2>Before / after scan</h2></div><span class="evidence-status {{ 'is-good' if experiment_b.improved|default(false, true) else 'is-review' }}">{{ 'Improved' if experiment_b.improved|default(false, true) else 'Review' }}</span></div>
+      <p>A temporary copy keeps the fixture unchanged while measuring the readability pass.</p>
+      <div class="before-after-evidence"><div><span>Before risk</span><strong>{{ experiment_b.before.risk_score|default('—', true) }}</strong></div><span class="evidence-arrow">→</span><div><span>After risk</span><strong class="text-good">{{ experiment_b.after.risk_score|default('—', true) }}</strong></div></div>
+      <div class="evidence-deltas"><span>Risk delta <b class="text-good">{{ experiment_b.risk_delta|default('—', true) }}</b></span><span>Complexity delta <b class="text-good">{{ experiment_b.complexity_delta|default('—', true) }}</b></span></div>
+      <div class="delta-bars" aria-label="Before and after refactor metrics"><div class="delta-axis"><span>100</span><span>50</span><span>0</span></div><div class="delta-bar-group"><div class="delta-bars-pair"><i class="bar-before" style="height: {{ experiment_b.before.risk_score|default(0, true) }}%"><b>{{ experiment_b.before.risk_score|default('—', true) }}</b></i><i class="bar-after" style="height: {{ experiment_b.after.risk_score|default(0, true) }}%"><b>{{ experiment_b.after.risk_score|default('—', true) }}</b></i></div><small>Risk</small></div><div class="delta-bar-group"><div class="delta-bars-pair"><i class="bar-before" style="height: {{ experiment_b.before.complexity_score|default(0, true) }}%"><b>{{ experiment_b.before.complexity_score|default('—', true) }}</b></i><i class="bar-after" style="height: {{ experiment_b.after.complexity_score|default(0, true) }}%"><b>{{ experiment_b.after.complexity_score|default('—', true) }}</b></i></div><small>Complexity</small></div><div class="delta-bar-group"><div class="delta-bars-pair"><i class="bar-before" style="height: {{ (experiment_b.before.lines|default(0, true) / 40 * 100)|round(0) }}%"><b>{{ experiment_b.before.lines|default('—', true) }}</b></i><i class="bar-after" style="height: {{ (experiment_b.after.lines|default(0, true) / 40 * 100)|round(0) }}%"><b>{{ experiment_b.after.lines|default('—', true) }}</b></i></div><small>Lines</small></div></div><div class="delta-legend"><span><i class="legend-swatch before"></i> Before</span><span><i class="legend-swatch after"></i> After</span></div></div>
+    </article>
+
+    <article class="panel evidence-card">
+      <div class="evidence-card-top"><div><span class="evidence-index">C</span><span class="eyebrow">Graph integrity</span><h2>Dependency detection</h2></div><span class="evidence-status {{ 'is-good' if experiment_c.matches|default(false, true) else 'is-review' }}">{{ 'All matched' if experiment_c.matches|default(false, true) else 'Review' }}</span></div>
+      <p>Expected edges, unresolved imports, and circular components are checked against the fixture graph.</p>
+      <div class="validation-rows"><div><span>Resolved edges</span><b>{{ experiment_c.detected_edges|default([], true)|length }} <small>/ {{ experiment_c.expected_edges|default([], true)|length }}</small></b></div><div><span>Unresolved import files</span><b>{{ experiment_c.detected_unresolved_imports|default({}, true)|length }} <small>/ {{ experiment_c.expected_unresolved_imports|default({}, true)|length }}</small></b></div><div><span>Circular components</span><b>{{ experiment_c.detected_cycles|default([], true)|length }} <small>/ {{ experiment_c.expected_cycles|default([], true)|length }}</small></b></div></div>
+      <div class="dependency-mini-graph" role="img" aria-label="Fixture dependency graph with a circular dependency and unresolved import"><svg viewBox="0 0 420 190" preserveAspectRatio="none"><defs><marker id="evidenceArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path></marker></defs><g class="dependency-graph-edges"><path d="M95 48 L190 48" marker-end="url(#evidenceArrow)"></path><path d="M95 48 L190 142" marker-end="url(#evidenceArrow)"></path><path d="M230 48 L330 48" marker-end="url(#evidenceArrow)"></path><path d="M230 142 L330 142" marker-end="url(#evidenceArrow)"></path><path class="cycle-edge" d="M205 63 C260 85 260 105 205 127" marker-end="url(#evidenceArrow)"></path><path class="cycle-edge" d="M190 127 C135 105 135 85 190 63" marker-end="url(#evidenceArrow)"></path><path class="unresolved-edge" d="M330 64 L375 95" marker-end="url(#evidenceArrow)"></path></g><g class="dependency-graph-nodes"><g class="graph-node-svg"><circle cx="75" cy="48" r="21"></circle><text x="75" y="52">HUB</text></g><g class="graph-node-svg"><circle cx="210" cy="48" r="21"></circle><text x="210" y="52">A</text></g><g class="graph-node-svg graph-cycle-svg"><circle cx="210" cy="142" r="21"></circle><text x="210" y="146">B</text></g><g class="graph-node-svg"><circle cx="350" cy="48" r="21"></circle><text x="350" y="52">APP</text></g><g class="graph-node-svg"><circle cx="350" cy="142" r="21"></circle><text x="350" y="146">REF</text></g><g class="graph-node-svg graph-unresolved-svg"><circle cx="390" cy="96" r="16"></circle><text x="390" y="99">?</text></g></g></svg><div class="dependency-graph-caption"><span><i class="graph-dot normal"></i> resolved edge</span><span><i class="graph-dot cycle"></i> cycle</span><span><i class="graph-dot unresolved"></i> unresolved</span></div></div>
+    </article>
+
+    <article class="panel evidence-card evidence-card-wide">
+      <div class="evidence-card-top"><div><span class="evidence-index">D</span><span class="eyebrow">Ranking robustness</span><h2>Stable across weight configurations</h2></div><span class="evidence-status is-good">Measured</span></div>
+      <p>Changing the balance between complexity, change frequency, and dependency reach keeps the most important hotspots visible.</p>
+      <div class="configuration-list">{% for name, configuration in experiment_d.configurations|default({}, true)|dictsort %}<div><div><strong>{{ name|replace('_', ' ')|title }}</strong><span>{{ (configuration.top_5_overlap_with_balanced|default(0, true) * 100)|round(0) }}% overlap</span></div><div class="configuration-bar"><i style="width: {{ (configuration.top_5_overlap_with_balanced|default(0, true) * 100)|round(0) }}%"></i></div><small>{{ configuration.weights.complexity|default(0, true) }} complexity · {{ configuration.weights.change_frequency|default(0, true) }} change · {{ configuration.weights.dependency_reach|default(0, true) }} reach</small></div>{% else %}<span class="evidence-empty">No configuration results supplied.</span>{% endfor %}</div>
+      <div class="ranking-matrix" aria-label="Ranking robustness matrix"><div class="ranking-matrix-corner">File</div>{% for name, configuration in experiment_d.configurations|default({}, true)|dictsort %}<div class="ranking-matrix-head">{{ name|replace('_', ' ')|title }}</div>{% endfor %}{% for row in experiment_d.configurations.balanced.ranking[:5]|default([], true) %}<div class="ranking-matrix-file">{{ row.path }}</div>{% for name, configuration in experiment_d.configurations|default({}, true)|dictsort %}{% set rank_item = configuration.ranking|selectattr('path', 'equalto', row.path)|list|first %}<div class="ranking-cell rank-{{ rank_item.rank|default(10, true) }}"><b>{{ rank_item.rank|default('—', true) }}</b></div>{% endfor %}{% endfor %}</div><div class="ranking-matrix-legend"><span>1 = strongest rank</span><span>5 = top-five boundary</span><span>10 = outside top five</span></div>
+    </article>
+  </section>
+
+  <section class="evidence-footnote panel"><span class="tip-spark">✦</span><div><strong>Keep the evidence close to the decision.</strong><p>Download the JSON for automation or the Markdown summary for a review thread.</p></div><div class="evidence-footnote-actions"><a class="text-link" href="{{ json_url }}" download>JSON <svg><use href="#i-download"></use></svg></a><a class="text-link" href="{{ markdown_url }}" download>Markdown <svg><use href="#i-download"></use></svg></a></div></section>
+{% endblock %}

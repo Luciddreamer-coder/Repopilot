@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% set active_page = 'history' %}
+{% block title %}Scan history{% endblock %}
+{% block breadcrumb %}Scan history{% endblock %}
+{% block content %}
+<section class="page-hero neon-hero">
+  <div><div class="eyebrow eyebrow-cyan"><span class="pulse-dot"></span> Repository timeline</div><h1>Watch your codebase <span class="gradient-text">evolve.</span></h1><p class="hero-copy">Compare every scan and see whether the project is moving in the right direction.</p></div>
+  <div class="hero-actions"><a class="button button-secondary" href="/compare/repository"><svg><use href="#i-compare"></use></svg> Compare scans</a><a class="button button-primary" href="/scan"><svg><use href="#i-refresh"></use></svg> New scan</a></div>
+</section>
+<section class="history-metrics">
+  <article class="metric-card history-metric"><span class="metric-label">Scans captured</span><strong>{{ snapshots|length }}</strong><span class="metric-caption">Process-local timeline</span></article>
+  <article class="metric-card history-metric"><span class="metric-label">Latest risk</span><strong>{{ snapshots[-1].summary.average_risk if snapshots else 0 }}</strong><span class="metric-caption">Current average score</span></article>
+  <article class="metric-card history-metric"><span class="metric-label">Tracked files</span><strong>{{ snapshots[-1].summary.file_count if snapshots else 0 }}</strong><span class="metric-caption">Across latest scan</span></article>
+  <article class="metric-card history-metric signal-glow"><span class="metric-label">Scoring model</span><strong>3</strong><span class="metric-caption">Transparent signals</span></article>
+</section>
+<section class="panel timeline-panel">
+  <div class="panel-heading"><div><span class="eyebrow">Scan trail</span><h2>Repository history</h2></div><span class="live-chip"><span class="status-dot"></span> Live session</span></div>
+  <div class="timeline-list">
+    {% for snapshot in snapshots|reverse %}
+    <article class="timeline-item {% if loop.first %}is-current{% endif %}">
+      <div class="timeline-marker"><span>{{ '%02d'|format(loop.index) }}</span></div>
+      <div class="timeline-content"><div class="timeline-top"><div><span class="eyebrow">{{ 'Current snapshot' if loop.first else 'Historical snapshot' }}</span><h3>{{ snapshot.id }}</h3></div><span class="timeline-date">{{ snapshot.generated_at }}</span></div><p>{{ snapshot.repository.name }} · {{ snapshot.repository.branch }} · {{ snapshot.summary.file_count }} files analyzed</p><div class="timeline-stats"><span><b>{{ snapshot.summary.average_risk }}</b> avg risk</span><span><b>{{ snapshot.summary.risk_counts.high + snapshot.summary.risk_counts.critical }}</b> high-risk</span><span><b>{{ snapshot.summary.dependency_count|default(0, true) }}</b> dependencies</span></div></div>
+      {% if not loop.first %}<a class="timeline-compare" href="/compare/repository?base={{ snapshot.id }}&target={{ snapshots[-1].id }}">Compare <svg><use href="#i-arrow-right"></use></svg></a>{% endif %}
+    </article>
+    {% else %}<div class="empty-state"><h3>No snapshots yet</h3><p>Run your first scan to begin the repository timeline.</p><a class="button button-primary" href="/scan">Start a scan</a></div>{% endfor %}
+  </div>
+</section>
+<section class="split-callouts"><a class="callout-card" href="/settings/scoring"><span class="callout-icon">≋</span><span><strong>Change the model</strong><small>Tune signal weights and rerank the radar.</small></span><svg><use href="#i-arrow-right"></use></svg></a><a class="callout-card" href="/report"><span class="callout-icon">↓</span><span><strong>Export the story</strong><small>Turn your scan history into a Markdown report.</small></span><svg><use href="#i-arrow-right"></use></svg></a></section>
+{% endblock %}

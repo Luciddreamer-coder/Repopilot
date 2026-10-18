@@ -10,7 +10,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
 from typing import Any, Sequence
+from pathlib import Path
 
 from .history import SnapshotStore
 from .models import RepositoryReport
@@ -34,6 +36,38 @@ def _findings(report: RepositoryReport) -> list[dict[str, Any]]:
                     "explanation": signal.explanation,
                     "evidence": list(signal.evidence),
                     "recommendation": f"Review {signal.name.replace('_', ' ')} before changing this file.",
+                }
+            )
+        if item.unresolved_imports:
+            imports = list(item.unresolved_imports)
+            score = min(100, 65 + (len(imports) * 10))
+            findings.append(
+                {
+                    "id": f"{item.path}:unresolved_imports",
+                    "file": item.path,
+                    "signal": "unresolved_imports",
+                    "score": score,
+                    "severity": "critical" if score >= 90 else "high" if score >= 75 else "medium",
+                    "title": f"Unresolved imports in {item.path}",
+                    "explanation": "The scanner found imports that do not resolve to files in the repository.",
+                    "evidence": [f"Unresolved import: {name}" for name in imports],
+                    "recommendation": "Resolve these imports or document the external dependency before changing this file.",
+                }
+            )
+        if item.dependency_cycles:
+            cycles = [list(cycle) for cycle in item.dependency_cycles]
+            score = min(100, 80 + (len(cycles) * 10))
+            findings.append(
+                {
+                    "id": f"{item.path}:dependency_cycles",
+                    "file": item.path,
+                    "signal": "dependency_cycles",
+                    "score": score,
+                    "severity": "critical" if score >= 90 else "high",
+                    "title": f"Circular dependency involving {item.path}",
+                    "explanation": "The file participates in one or more circular dependency components.",
+                    "evidence": ["Circular dependency: " + " -> ".join(cycle + [cycle[0]]) for cycle in cycles],
+                    "recommendation": "Break the cycle by extracting a lower-level module or inverting the dependency.",
                 }
             )
     return sorted(findings, key=lambda entry: (-entry["score"], entry["file"], entry["signal"]))
@@ -101,7 +135,7 @@ def _markdown_report(report: RepositoryReport, findings: list[dict[str, Any]]) -
     ]
     for finding in findings:
         lines.append(
-            f"- **{finding['severity'].title()} — {finding['file']} "
+            f"- **{finding['severity'].title()} - {finding['file']} "
             f"({finding['signal']}, {finding['score']})**: {finding['explanation']}"
         )
     lines.extend(
@@ -115,16 +149,58 @@ def _markdown_report(report: RepositoryReport, findings: list[dict[str, Any]]) -
     )
     for item in report.files:
         lines.append(f"| `{item.path}` | {item.risk_score} | {item.risk_level} | {item.lines} | {len(item.dependencies)} |")
-    return "\n".join(lines) + "\n"
+    # Keep the report a real Unicode string until the caller writes it.  An
+    # explicit UTF-8 round trip catches accidental surrogate values without
+    # silently introducing replacement characters.
+    rendered = "\n".join(lines) + "\n"
+    return rendered.encode("utf-8", errors="strict").decode("utf-8")
 
 
 def _json_output(payload: Any) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
 
 
+def _write_markdown(text: str) -> None:
+    """Write Markdown as UTF-8 bytes when stdout exposes a binary stream."""
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is not None:
+        buffer.write(text.encode("utf-8", errors="strict"))
+        buffer.flush()
+    else:  # StringIO and other test/caller-provided text streams.
+        sys.stdout.write(text)
+
+
 def _scan_store(path: str, database: str | None) -> tuple[SnapshotStore, RepositoryReport, list[dict[str, Any]]]:
-    store = SnapshotStore(database)
+    """Scan with an explicit DB, or an isolated throwaway DB for the CLI.
+
+    The web app owns the instance database.  A CLI invocation without
+    ``--database`` must never seed or append to that database, even when the
+    ``REPOPILOT_DATABASE_PATH`` environment variable is configured for the
+    server.
+    """
+    temporary_directory: tempfile.TemporaryDirectory[str] | None = None
+    if database is None:
+        temporary_directory = tempfile.TemporaryDirectory(prefix="repopilot-cli-")
+        database = str(Path(temporary_directory.name) / "snapshots.sqlite3")
+    try:
+        store = SnapshotStore(database)
+    except Exception:
+        if temporary_directory is not None:
+            temporary_directory.cleanup()
+        raise
+    if temporary_directory is not None:
+        store._cli_temporary_directory = temporary_directory  # type: ignore[attr-defined]
     report = store.scan(path)
+    # ``SnapshotStore`` may return a weighted copy that predates the
+    # repository-level structural fields.  The durable per-file fields are
+    # authoritative, so restore the aggregate maps before serializing output.
+    report.unresolved_imports = {
+        item.path: list(item.unresolved_imports) for item in report.files if item.unresolved_imports
+    }
+    report.dependency_cycles = [
+        list(cycle)
+        for cycle in sorted({tuple(cycle) for item in report.files for cycle in item.dependency_cycles})
+    ]
     current = store.snapshot(None)
     previous = store.previous_snapshot(current.id if current else None)
     findings = _finding_lifecycle(
@@ -134,6 +210,13 @@ def _scan_store(path: str, database: str | None) -> tuple[SnapshotStore, Reposit
         previous.id if previous else None,
     )
     return store, report, findings
+
+
+def _close_store(store: SnapshotStore) -> None:
+    store.close()
+    temporary_directory = getattr(store, "_cli_temporary_directory", None)
+    if temporary_directory is not None:
+        temporary_directory.cleanup()
 
 
 def _report_payload(report: RepositoryReport, *, command: str, snapshot_id: str | None = None) -> dict[str, Any]:
@@ -149,7 +232,7 @@ def _command_scan(args: argparse.Namespace) -> int:
     try:
         _json_output(_report_payload(report, command="scan", snapshot_id=store.current_snapshot_id))
     finally:
-        store.close()
+        _close_store(store)
     return 0
 
 
@@ -165,7 +248,7 @@ def _command_hotspots(args: argparse.Namespace) -> int:
             }
         )
     finally:
-        store.close()
+        _close_store(store)
     return 0
 
 
@@ -174,7 +257,7 @@ def _command_findings(args: argparse.Namespace) -> int:
     try:
         _json_output({"command": "findings", "repository": report.repository, "count": len(findings), "findings": findings})
     finally:
-        store.close()
+        _close_store(store)
     return 0
 
 
@@ -184,9 +267,9 @@ def _command_report(args: argparse.Namespace) -> int:
         if args.format == "json":
             _json_output(_report_payload(report, command="report", snapshot_id=store.current_snapshot_id))
         else:
-            print(_markdown_report(report, _findings(report)), end="")
+            _write_markdown(_markdown_report(report, _findings(report)))
     finally:
-        store.close()
+        _close_store(store)
     return 0
 
 
@@ -214,7 +297,7 @@ def _command_check(args: argparse.Namespace) -> int:
         _json_output(payload)
         return 0 if not violations else 1
     finally:
-        store.close()
+        _close_store(store)
 
 
 def build_parser() -> argparse.ArgumentParser:

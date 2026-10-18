@@ -78,6 +78,12 @@ CREATE TABLE IF NOT EXISTS app_state (
 );
 """
 
+# ``app_state.schema_version`` is deliberately kept in the existing state
+# table, rather than requiring a second metadata table.  This lets databases
+# created by earlier RepoPilot releases migrate in place without dropping
+# snapshots or changing the public persistence API.
+SCHEMA_VERSION = 2
+
 
 def default_database_path(base_dir: str | os.PathLike[str] | None = None) -> Path:
     """Return the portable, instance-local default database path."""
@@ -108,12 +114,53 @@ class SQLitePersistence:
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.executescript(SCHEMA)
+        self._migrate()
+
+    def _stored_schema_version(self) -> int:
+        row = self.connection.execute("SELECT value FROM app_state WHERE key = 'schema_version'").fetchone()
+        if row is None:
+            return 0
+        try:
+            return max(0, int(row["value"]))
+        except (TypeError, ValueError):
+            return 0
+
+    def _set_schema_version(self, version: int) -> None:
+        self.connection.execute(
+            "INSERT INTO app_state(key, value) VALUES ('schema_version', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (str(version),),
+        )
+
+    def _migrate(self) -> None:
+        """Apply additive migrations while preserving all existing rows."""
+        version = self._stored_schema_version()
+
+        # Version 1 introduced the file-level JSON columns.  The table exists
+        # in the current CREATE script, but old databases need ALTER TABLE.
         columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(files)")}
         if "git_json" not in columns:
             self.connection.execute("ALTER TABLE files ADD COLUMN git_json TEXT NOT NULL DEFAULT '{}'")
         if "metadata_json" not in columns:
             self.connection.execute("ALTER TABLE files ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'")
+        if version < 1:
+            version = 1
+
+        # Version 2 records the structural-analysis metadata in the existing
+        # JSON column.  No destructive table rewrite is necessary; old rows
+        # simply retain their empty metadata and remain fully readable.
+        if version < 2:
+            version = 2
+
+        if version < SCHEMA_VERSION:
+            version = SCHEMA_VERSION
+        self._set_schema_version(version)
         self.connection.commit()
+
+    @property
+    def schema_version(self) -> int:
+        """Return the applied schema version for diagnostics and migrations."""
+        return self._stored_schema_version()
 
     def close(self) -> None:
         self.connection.close()
@@ -167,8 +214,13 @@ class SQLitePersistence:
                         "change_count": item.change_count,
                         "lines_added": item.lines_added,
                         "lines_deleted": item.lines_deleted,
-                        "authors": item.authors,
-                        "last_changed": item.last_changed,
+                         "authors": item.authors,
+                         "last_changed": item.last_changed,
+                         "last_commit": item.last_commit,
+                         "last_commit_short": item.last_commit_short,
+                         "last_commit_subject": item.last_commit_subject,
+                         "last_author": item.last_author,
+                         "last_author_email": item.last_author_email,
                      }), _json({
                          "coverage_percent": item.coverage_percent,
                          "coverage_covered_lines": item.coverage_covered_lines,

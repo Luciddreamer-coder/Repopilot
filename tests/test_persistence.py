@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from app import create_app
+from app.persistence import SQLitePersistence
 
 
 class RepoPilotPersistenceTests(unittest.TestCase):
@@ -21,7 +22,8 @@ class RepoPilotPersistenceTests(unittest.TestCase):
             current_id = first_history["current_snapshot_id"]
             self.assertEqual(first_history["snapshots"][-1]["id"], current_id)
             baseline_id = first_history["snapshots"][0]["id"]
-            first.extensions["repopilot_store"].select_snapshot(baseline_id)
+            selected = first_client.post(f"/api/snapshots/{baseline_id}/select")
+            self.assertEqual(selected.status_code, 200)
 
             reopened = create_app({"DATABASE_PATH": str(database)})
             reopened_client = reopened.test_client()
@@ -56,6 +58,34 @@ class RepoPilotPersistenceTests(unittest.TestCase):
             self.assertTrue({"repositories", "snapshots", "files", "findings", "dependency_edges"}.issubset(tables))
             first.extensions["repopilot_store"].close()
             reopened.extensions["repopilot_store"].close()
+
+    def test_legacy_database_is_migrated_in_place_and_versioned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "legacy.sqlite3"
+            connection = sqlite3.connect(database)
+            connection.executescript(
+                """
+                CREATE TABLE repositories (id INTEGER PRIMARY KEY, identity TEXT UNIQUE NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, branch TEXT NOT NULL, commit_hash TEXT NOT NULL, metadata_json TEXT NOT NULL);
+                CREATE TABLE snapshots (id TEXT PRIMARY KEY, sequence INTEGER UNIQUE NOT NULL, repository_id INTEGER NOT NULL, generated_at TEXT NOT NULL, demo_mode INTEGER NOT NULL, weights_json TEXT NOT NULL);
+                CREATE TABLE files (id INTEGER PRIMARY KEY, snapshot_id TEXT NOT NULL, path TEXT NOT NULL, language TEXT NOT NULL, lines INTEGER NOT NULL, functions INTEGER NOT NULL, risk_score INTEGER NOT NULL, risk_level TEXT NOT NULL, summary TEXT NOT NULL, content TEXT NOT NULL, UNIQUE(snapshot_id, path));
+                CREATE TABLE findings (id INTEGER PRIMARY KEY, snapshot_id TEXT NOT NULL, file_path TEXT NOT NULL, name TEXT NOT NULL, score INTEGER NOT NULL, level TEXT NOT NULL, explanation TEXT NOT NULL, evidence_json TEXT NOT NULL);
+                CREATE TABLE dependency_edges (snapshot_id TEXT NOT NULL, source_path TEXT NOT NULL, target_path TEXT NOT NULL, PRIMARY KEY(snapshot_id, source_path, target_path));
+                CREATE TABLE app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                INSERT INTO app_state(key, value) VALUES ('schema_version', '1');
+                INSERT INTO repositories(id, identity, name, path, branch, commit_hash, metadata_json) VALUES (1, 'legacy', 'legacy', 'legacy', 'unknown', 'unknown', '{}');
+                INSERT INTO snapshots(id, sequence, repository_id, generated_at, demo_mode, weights_json) VALUES ('legacy-snapshot', 1, 1, 'now', 0, '{}');
+                INSERT INTO files(snapshot_id, path, language, lines, functions, risk_score, risk_level, summary, content) VALUES ('legacy-snapshot', 'main.py', 'Python', 1, 0, 1, 'low', 'legacy', 'pass');
+                """
+            )
+            connection.commit()
+            connection.close()
+
+            persistence = SQLitePersistence(database)
+            self.assertEqual(persistence.schema_version, 2)
+            columns = {row[1] for row in persistence.connection.execute("PRAGMA table_info(files)")}
+            self.assertTrue({"git_json", "metadata_json"}.issubset(columns))
+            self.assertEqual(persistence.connection.execute("SELECT COUNT(*) FROM files").fetchone()[0], 1)
+            persistence.close()
 
 
 if __name__ == "__main__":

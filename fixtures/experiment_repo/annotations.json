@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "hotspots": [
+    "complex_hotspot.py",
+    "dependency_hub.py",
+    "low_coverage.py",
+    "refactor_candidate.py"
+  ],
+  "dependencies": {
+    "complex_hotspot.py": ["healthy.py"],
+    "dependency_hub.py": [
+      "complex_hotspot.py",
+      "cycle_a.py",
+      "healthy.py",
+      "refactor_candidate.py"
+    ],
+    "cycle_a.py": ["cycle_b.py"],
+    "cycle_b.py": ["cycle_a.py"],
+    "graph_entry.py": ["dependency_hub.py"],
+    "hub_consumer.py": ["complex_hotspot.py", "dependency_hub.py"],
+    "refactor_candidate.py": ["complex_hotspot.py"],
+    "unresolved_import.py": ["dependency_hub.py"]
+  },
+  "unresolved_imports": {
+    "unresolved_import.py": ["missing_local_package", "third_party_missing"]
+  },
+  "cycles": [["cycle_a.py", "cycle_b.py"]]
+}
