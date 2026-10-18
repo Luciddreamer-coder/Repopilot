@@ -1,11 +1,14 @@
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from app import create_app
 from app.scanner import scan_repository
 from experiments.run_experiments import run_experiments
+from experiments.fixture_git import materialize_fixture_git
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +50,20 @@ class RepoPilotExperimentTests(unittest.TestCase):
             self.assertEqual(saved["A"]["precision_at_5"], results["A"]["precision_at_5"])
             for heading in ("Experiment A", "Experiment B", "Experiment C", "Experiment D"):
                 self.assertIn(heading, evidence)
+
+    def test_fixture_git_history_is_reproducible_outside_checked_in_fixture(self):
+        self.assertFalse((FIXTURE / ".git").exists())
+        with tempfile.TemporaryDirectory() as directory:
+            first = materialize_fixture_git(FIXTURE, Path(directory) / "first")
+            second = materialize_fixture_git(FIXTURE, Path(directory) / "second")
+            def commits(root):
+                return subprocess.run(
+                    ["git", "-C", str(root), "log", "--format=%H %s", "--reverse"],
+                    check=True, capture_output=True, text=True,
+                ).stdout
+            self.assertEqual(commits(first), commits(second))
+            self.assertEqual(commits(first).count("\n"), 3)
+            self.assertEqual(subprocess.run(["git", "-C", str(first), "branch", "--show-current"], check=True, capture_output=True, text=True).stdout.strip(), "main")
 
     def test_evidence_center_route_and_downloads(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -103,6 +120,28 @@ class RepoPilotExperimentTests(unittest.TestCase):
             self.assertTrue(graph["unresolved_imports"])
             self.assertEqual(graph["cycles"], [["cycle_a.py", "cycle_b.py"]])
             app.extensions["repopilot_store"].close()
+
+    def test_combined_risk_findings_preserve_signal_findings(self):
+        item = SimpleNamespace(
+            path="risky.py", risk_score=80, risk_level="high", change_count=3,
+            unresolved_imports=[], dependency_cycles=[],
+            signals=[
+                SimpleNamespace(name="complexity", score=80, level="high", explanation="complex", evidence=["complexity evidence"]),
+                SimpleNamespace(name="change_frequency", score=75, level="high", explanation="churn", evidence=["3 recent changes"]),
+                SimpleNamespace(name="low_coverage", score=88, level="critical", explanation="coverage", evidence=["12.00% line coverage"]),
+            ],
+        )
+        report = SimpleNamespace(files=[item])
+        from app.cli import _findings as cli_findings
+        from app.routes import _findings as route_findings
+
+        for findings in (cli_findings(report), route_findings(report)):
+            ids = {finding["id"] for finding in findings}
+            self.assertIn("risky.py:complexity", ids)
+            self.assertIn("risky.py:high_risk_low_coverage", ids)
+            self.assertIn("risky.py:high_risk_high_churn", ids)
+            combined = [finding for finding in findings if finding["signal"].startswith("high_risk_")]
+            self.assertTrue(all(finding["evidence"] and finding["recommendation"] for finding in combined))
 
     def test_experiment_check_mode_passes_controlled_invariants(self):
         with tempfile.TemporaryDirectory() as directory:

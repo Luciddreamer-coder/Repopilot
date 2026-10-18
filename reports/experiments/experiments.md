@@ -15,7 +15,7 @@ Fixture: `fixtures/experiment_repo`
 
 | Metric | Before | After | Delta |
 | --- | --- | --- | --- |
-| Risk score | 37 | 13 | -24 |
+| Risk score | 32 | 10 | -22 |
 | Complexity score | 43 | 3 | -40 |
 | Lines | 31 | 5 | -26 |
 

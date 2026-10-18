@@ -70,6 +70,40 @@ def _findings(report: RepositoryReport) -> list[dict[str, Any]]:
                     "recommendation": "Break the cycle by extracting a lower-level module or inverting the dependency.",
                 }
             )
+        signals = {signal.name: signal for signal in item.signals}
+        high_risk = item.risk_level in {"high", "critical"} or item.risk_score >= 75
+        low_coverage = signals.get("low_coverage")
+        if high_risk and low_coverage is not None:
+            score = min(100, max(item.risk_score, low_coverage.score) + 10)
+            findings.append(
+                {
+                    "id": f"{item.path}:high_risk_low_coverage",
+                    "file": item.path,
+                    "signal": "high_risk_low_coverage",
+                    "score": score,
+                    "severity": "critical" if score >= 90 else "high",
+                    "title": f"High risk with low coverage in {item.path}",
+                    "explanation": "This high-risk module has measured line coverage below the analysis threshold.",
+                    "evidence": [f"risk score: {item.risk_score}", *low_coverage.evidence],
+                    "recommendation": "Add focused tests for uncovered paths before changing this high-risk module.",
+                }
+            )
+        change_signal = signals.get("change_frequency")
+        if high_risk and item.change_count >= 2 and change_signal is not None:
+            score = min(100, max(item.risk_score, change_signal.score) + 10)
+            findings.append(
+                {
+                    "id": f"{item.path}:high_risk_high_churn",
+                    "file": item.path,
+                    "signal": "high_risk_high_churn",
+                    "score": score,
+                    "severity": "critical" if score >= 90 else "high",
+                    "title": f"High risk with high churn in {item.path}",
+                    "explanation": "This high-risk module has changed repeatedly in the recent history window.",
+                    "evidence": [f"risk score: {item.risk_score}", *change_signal.evidence],
+                    "recommendation": "Review recent changes and add regression coverage before further edits.",
+                }
+            )
     return sorted(findings, key=lambda entry: (-entry["score"], entry["file"], entry["signal"]))
 
 
@@ -304,7 +338,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="repopilot", description="Scan repositories and enforce RepoPilot risk gates.")
     parser.add_argument(
         "--database",
-        help="SQLite snapshot database (defaults to REPOPILOT_DATABASE_PATH or the app instance database)",
+        metavar="PATH",
+        help="persist CLI snapshots in PATH (default: temporary isolated database per invocation)",
     )
     commands = parser.add_subparsers(dest="command", required=True)
 

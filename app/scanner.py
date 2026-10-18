@@ -407,11 +407,15 @@ def _parse_coverage_xml(root: Path, relative_paths: set[str]) -> dict[str, dict[
 
 
 def _parse_coverage_database(root: Path, relative_paths: set[str]) -> dict[str, dict[str, object]]:
-    """Best-effort reader for old coverage.py ``line`` tables.
+    """Best-effort reader for coverage.py SQLite databases.
 
-    Newer coverage.py releases store compact ``line_bits`` blobs, which are
-    deliberately left alone here because decoding them would duplicate a
-    third-party implementation.  XML/LCOV remain the fully supported formats.
+    Older coverage.py releases store one row per executed line in ``line``.
+    Modern releases compact the same information into a ``line_bits`` blob:
+    bit *n* represents executed source line *n*.  The bitset encoding is small
+    and straightforward, so decode the current format locally rather than
+    requiring coverage.py as a runtime dependency.  An unknown or malformed
+    schema remains unknown coverage and is ignored, just like an unreadable
+    report.
     """
     database = root / ".coverage"
     if not database.is_file():
@@ -419,20 +423,69 @@ def _parse_coverage_database(root: Path, relative_paths: set[str]) -> dict[str, 
     try:
         connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True)
         tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if not {"file", "line"}.issubset(tables):
+        rows: list[tuple[str, int | bytes | None]]
+        line_bits_format = False
+        if {"file", "line_bits"}.issubset(tables):
+            line_bits_format = True
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(line_bits)")}
+            if not {"file_id", "numbits"}.issubset(columns):
+                connection.close()
+                return {}
+            rows = connection.execute(
+                "SELECT file.path, line_bits.numbits "
+                "FROM file JOIN line_bits ON line_bits.file_id = file.id"
+            ).fetchall()
+        elif {"file", "line"}.issubset(tables):
+            rows = connection.execute(
+                "SELECT file.path, COUNT(line.line) "
+                "FROM file JOIN line ON line.file_id = file.id GROUP BY file.path"
+            ).fetchall()
+        else:
             connection.close()
             return {}
-        rows = connection.execute("SELECT file.path, COUNT(line.line) FROM file JOIN line ON line.file_id = file.id GROUP BY file.path").fetchall()
         connection.close()
     except (OSError, sqlite3.Error):
         return {}
     result: dict[str, dict[str, object]] = {}
-    for raw_path, covered in rows:
+    bit_lines: dict[str, set[int]] = defaultdict(set)
+    legacy_counts: dict[str, int] = {}
+    for raw_path, data in rows:
         relative = _coverage_path(root, str(raw_path), relative_paths)
         if not relative:
             continue
-        source_lines = len((root / relative).read_text(encoding="utf-8", errors="replace").splitlines())
-        entry = _coverage_entry(int(covered), source_lines, ".coverage")
+        if line_bits_format and isinstance(data, (bytes, bytearray, memoryview)):
+            # coverage.py's numbits encoding is little-endian within each
+            # byte: byte 0 contains lines 0..7, byte 1 lines 8..15, etc.
+            bit_lines[relative].update(
+                byte_index * 8 + bit_index
+                for byte_index, value in enumerate(bytes(data))
+                for bit_index in range(8)
+                if value & (1 << bit_index) and byte_index * 8 + bit_index > 0
+            )
+            continue
+        if line_bits_format:
+            # Do not infer coverage from an unsupported line_bits value.
+            continue
+        try:
+            legacy_counts[relative] = int(data or 0)
+        except (TypeError, ValueError):
+            continue
+
+    for relative, lines in bit_lines.items():
+        try:
+            source_lines = len((root / relative).read_text(encoding="utf-8", errors="replace").splitlines())
+        except OSError:
+            continue
+        covered = sum(line <= source_lines for line in lines)
+        entry = _coverage_entry(covered, source_lines, ".coverage")
+        if entry:
+            result[relative] = entry
+    for relative, covered in legacy_counts.items():
+        try:
+            source_lines = len((root / relative).read_text(encoding="utf-8", errors="replace").splitlines())
+        except OSError:
+            continue
+        entry = _coverage_entry(covered, source_lines, ".coverage")
         if entry:
             result[relative] = entry
     return result

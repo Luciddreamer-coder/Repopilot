@@ -32,7 +32,7 @@
       "dependencies": [],
       "lines": 5,
       "risk_level": "low",
-      "risk_score": 13
+      "risk_score": 10
     },
     "before": {
       "complexity_score": 43,
@@ -41,13 +41,13 @@
       ],
       "lines": 31,
       "risk_level": "low",
-      "risk_score": 37
+      "risk_score": 32
     },
     "complexity_delta": -40,
     "fixture_unchanged": true,
     "improved": true,
     "name": "before/after refactor scan comparison",
-    "risk_delta": -24,
+    "risk_delta": -22,
     "target": "refactor_candidate.py",
     "temporary_copy_used": true
   },
@@ -189,52 +189,52 @@
           {
             "path": "complex_hotspot.py",
             "rank": 1,
-            "score": 72.1
+            "score": 69.35
           },
           {
             "path": "dependency_hub.py",
             "rank": 2,
-            "score": 62.85
+            "score": 65.6
           },
           {
             "path": "refactor_candidate.py",
             "rank": 3,
-            "score": 37.2
+            "score": 31.7
           },
           {
             "path": "low_coverage.py",
             "rank": 4,
-            "score": 32.55
+            "score": 27.05
           },
           {
             "path": "cycle_a.py",
             "rank": 5,
-            "score": 27.45
-          },
-          {
-            "path": "cycle_b.py",
-            "rank": 6,
-            "score": 21.45
+            "score": 21.95
           },
           {
             "path": "healthy.py",
-            "rank": 7,
+            "rank": 6,
             "score": 16.1
           },
           {
-            "path": "unresolved_import.py",
-            "rank": 8,
-            "score": 13.65
+            "path": "cycle_b.py",
+            "rank": 7,
+            "score": 15.95
           },
           {
             "path": "hub_consumer.py",
+            "rank": 8,
+            "score": 13.55
+          },
+          {
+            "path": "unresolved_import.py",
             "rank": 9,
-            "score": 10.8
+            "score": 8.15
           },
           {
             "path": "graph_entry.py",
             "rank": 10,
-            "score": 4.95
+            "score": 7.7
           }
         ],
         "top_5": [
@@ -254,60 +254,60 @@
       "change_heavy": {
         "ranking": [
           {
-            "path": "complex_hotspot.py",
+            "path": "dependency_hub.py",
             "rank": 1,
-            "score": 47.6
+            "score": 41.2
+          },
+          {
+            "path": "complex_hotspot.py",
+            "rank": 2,
+            "score": 41.0
           },
           {
             "path": "refactor_candidate.py",
-            "rank": 2,
-            "score": 34.8
-          },
-          {
-            "path": "dependency_hub.py",
             "rank": 3,
-            "score": 34.6
+            "score": 21.6
           },
           {
             "path": "cycle_a.py",
             "rank": 4,
-            "score": 31.8
+            "score": 18.6
           },
           {
             "path": "low_coverage.py",
             "rank": 5,
-            "score": 30.6
-          },
-          {
-            "path": "cycle_b.py",
-            "rank": 6,
-            "score": 27.8
-          },
-          {
-            "path": "unresolved_import.py",
-            "rank": 7,
-            "score": 23.0
+            "score": 17.4
           },
           {
             "path": "healthy.py",
-            "rank": 8,
+            "rank": 6,
             "score": 15.2
           },
           {
+            "path": "cycle_b.py",
+            "rank": 7,
+            "score": 14.6
+          },
+          {
             "path": "hub_consumer.py",
+            "rank": 8,
+            "score": 13.0
+          },
+          {
+            "path": "unresolved_import.py",
             "rank": 9,
-            "score": 6.4
+            "score": 9.8
           },
           {
             "path": "graph_entry.py",
             "rank": 10,
-            "score": 3.0
+            "score": 9.6
           }
         ],
         "top_5": [
+          "dependency_hub.py",
           "complex_hotspot.py",
           "refactor_candidate.py",
-          "dependency_hub.py",
           "cycle_a.py",
           "low_coverage.py"
         ],
@@ -323,52 +323,52 @@
           {
             "path": "complex_hotspot.py",
             "rank": 1,
-            "score": 82.7
+            "score": 81.05
           },
           {
             "path": "dependency_hub.py",
             "rank": 2,
-            "score": 67.45
+            "score": 69.1
           },
           {
             "path": "low_coverage.py",
             "rank": 3,
-            "score": 40.05
+            "score": 36.75
           },
           {
             "path": "refactor_candidate.py",
             "rank": 4,
-            "score": 39.3
+            "score": 36.0
           },
           {
             "path": "cycle_a.py",
             "rank": 5,
-            "score": 20.55
+            "score": 17.25
           },
           {
             "path": "cycle_b.py",
             "rank": 6,
-            "score": 16.55
-          },
-          {
-            "path": "healthy.py",
-            "rank": 7,
-            "score": 11.6
+            "score": 13.25
           },
           {
             "path": "hub_consumer.py",
+            "rank": 7,
+            "score": 11.65
+          },
+          {
+            "path": "healthy.py",
             "rank": 8,
-            "score": 10.0
+            "score": 11.6
           },
           {
             "path": "unresolved_import.py",
             "rank": 9,
-            "score": 9.95
+            "score": 6.65
           },
           {
             "path": "graph_entry.py",
             "rank": 10,
-            "score": 4.35
+            "score": 6.0
           }
         ],
         "top_5": [
@@ -390,22 +390,22 @@
           {
             "path": "dependency_hub.py",
             "rank": 1,
-            "score": 79.6
+            "score": 81.25
           },
           {
             "path": "complex_hotspot.py",
             "rank": 2,
-            "score": 70.1
+            "score": 68.45
           },
           {
             "path": "cycle_a.py",
             "rank": 3,
-            "score": 40.35
+            "score": 37.05
           },
           {
             "path": "refactor_candidate.py",
             "rank": 4,
-            "score": 34.35
+            "score": 31.05
           },
           {
             "path": "healthy.py",
@@ -415,27 +415,27 @@
           {
             "path": "cycle_b.py",
             "rank": 6,
-            "score": 27.35
+            "score": 24.05
           },
           {
             "path": "hub_consumer.py",
             "rank": 7,
-            "score": 17.2
+            "score": 18.85
           },
           {
             "path": "low_coverage.py",
             "rank": 8,
-            "score": 15.75
+            "score": 12.45
           },
           {
             "path": "unresolved_import.py",
             "rank": 9,
-            "score": 13.55
+            "score": 10.25
           },
           {
             "path": "graph_entry.py",
             "rank": 10,
-            "score": 8.4
+            "score": 10.05
           }
         ],
         "top_5": [

@@ -112,7 +112,10 @@ per-file line coverage and emits a `low_coverage` signal below 80%:
 
 - `coverage.xml` (Cobertura-style)
 - `lcov.info`
-- legacy `.coverage` SQLite files with a `line` table
+- `.coverage` SQLite files from coverage.py, including modern `line_bits`
+  bitset tables and legacy `line` tables. The bitsets are decoded with the
+  Python standard library, so installing coverage.py is optional. Unsupported
+  or unreadable database schemas stay unknown (no fabricated coverage values).
 
 Static dependency analysis is conservative. It resolves known local relative
 imports, lists unresolved imports separately, and reports circular dependency
@@ -141,10 +144,10 @@ python -m compileall app app.py
 
 RepoPilot also provides a dependency-free CLI for local scans and CI quality
 gates. It uses the same scanner and SQLite-backed `SnapshotStore` as the web
-application. The optional `--database` flag keeps a separate snapshot history;
-when omitted, each CLI invocation uses a temporary isolated database and never
-mutates the web application's instance database or its configured environment
-path.
+application. By default, each CLI invocation uses a temporary isolated
+database, so it does not mutate the web application's instance database or its
+`REPOPILOT_DATABASE_PATH` setting. Pass `--database PATH` explicitly (before
+the subcommand) when you want snapshot history to persist between invocations:
 
 ```powershell
 python repopilot_cli.py scan PATH
@@ -153,6 +156,10 @@ python repopilot_cli.py findings PATH
 python repopilot_cli.py report PATH --format markdown
 python repopilot_cli.py report PATH --format json
 python repopilot_cli.py check PATH --max-risk 80 --max-new-findings 0
+
+# Persistent CLI history, reused by later commands:
+python repopilot_cli.py --database .local/repopilot-cli.sqlite3 scan PATH
+python repopilot_cli.py --database .local/repopilot-cli.sqlite3 findings PATH
 ```
 
 `scan`, `hotspots`, `findings`, and JSON reports write JSON to stdout. Markdown

@@ -22,6 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.scanner import scan_repository  # noqa: E402
+from experiments.fixture_git import materialize_fixture_git  # noqa: E402
 
 
 DEFAULT_FIXTURE = PROJECT_ROOT / "fixtures" / "experiment_repo"
@@ -248,13 +249,15 @@ def run_experiments(fixture_root: Path | str = DEFAULT_FIXTURE, output_dir: Path
     fixture = Path(fixture_root).resolve()
     output = Path(output_dir).resolve()
     annotations = _load_annotations(fixture)
-    results = {
-        "fixture": "fixtures/experiment_repo" if fixture == DEFAULT_FIXTURE.resolve() else fixture.name,
-        "A": experiment_a(fixture, annotations),
-        "B": experiment_b(fixture),
-        "C": experiment_c(fixture, annotations),
-        "D": experiment_d(fixture),
-    }
+    with tempfile.TemporaryDirectory(prefix="repopilot-fixture-git-") as directory:
+        git_fixture = materialize_fixture_git(fixture, Path(directory) / fixture.name)
+        results = {
+            "fixture": "fixtures/experiment_repo" if fixture == DEFAULT_FIXTURE.resolve() else fixture.name,
+            "A": experiment_a(git_fixture, annotations),
+            "B": experiment_b(git_fixture),
+            "C": experiment_c(git_fixture, annotations),
+            "D": experiment_d(git_fixture),
+        }
     output.mkdir(parents=True, exist_ok=True)
     (output / "experiments.json").write_text(json.dumps(results, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (output / "experiments.md").write_text(_render_markdown(results), encoding="utf-8")

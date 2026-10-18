@@ -4,6 +4,7 @@
   "commits": [
     {
       "id": "fixture-0001",
+      "date": "2026-10-19T12:00:00+0000",
       "subject": "establish dependency graph and healthy baseline",
       "changed_files": [
         {"path": "healthy.py", "status": "A", "lines_added": 8, "lines_deleted": 0},
@@ -13,6 +14,7 @@
     },
     {
       "id": "fixture-0002",
+      "date": "2026-10-19T12:01:00+0000",
       "subject": "add cyclic and unresolved import examples",
       "changed_files": [
         {"path": "cycle_a.py", "status": "A", "lines_added": 4, "lines_deleted": 0},
@@ -22,6 +24,7 @@
     },
     {
       "id": "fixture-0003",
+      "date": "2026-10-19T12:02:00+0000",
       "subject": "introduce hotspot candidates and consumer reach",
       "changed_files": [
         {"path": "complex_hotspot.py", "status": "A", "lines_added": 31, "lines_deleted": 0},

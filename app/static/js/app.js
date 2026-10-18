@@ -142,4 +142,44 @@
       if (status) status.textContent = error.message;
     }
   });
+
+  const compareForm = $('[data-compare-form]');
+  const compareStatus = $('[data-compare-status]');
+  compareForm?.addEventListener('submit', async (event) => {
+    const baseRef = compareForm.elements.base_ref?.value.trim() || '';
+    const targetRef = compareForm.elements.target_ref?.value.trim() || '';
+    if (!baseRef && !targetRef) return;
+    event.preventDefault();
+    if (!baseRef || !targetRef) {
+      if (compareStatus) {
+        compareStatus.textContent = 'Enter both a base and target Git ref, or clear both fields to compare saved snapshots.';
+        compareStatus.hidden = false;
+      }
+      return;
+    }
+    if (baseRef === targetRef) {
+      if (compareStatus) {
+        compareStatus.textContent = 'Choose two different Git refs to see a comparison.';
+        compareStatus.hidden = false;
+      }
+      return;
+    }
+    if (compareStatus) {
+      compareStatus.textContent = 'Checking Git refs…';
+      compareStatus.hidden = false;
+    }
+    const params = new URLSearchParams(new FormData(compareForm));
+    const destination = `${compareForm.action}?${params.toString()}`;
+    try {
+      const response = await fetch(destination, { headers: { Accept: 'application/json' } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'The Git refs could not be compared.');
+      window.location.assign(destination);
+    } catch (error) {
+      if (compareStatus) {
+        compareStatus.textContent = error.message || 'The Git refs could not be compared.';
+        compareStatus.hidden = false;
+      }
+    }
+  });
 })();

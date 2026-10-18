@@ -74,6 +74,58 @@ class RepoPilotGitComparisonTests(unittest.TestCase):
             finally:
                 app.extensions["repopilot_store"].close()
 
+    def test_repository_compare_page_exposes_git_ref_controls(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as database:
+            root = Path(directory)
+            self._git(root, "init", "-q")
+            (root / "main.py").write_text("def main():\n    return 1\n", encoding="utf-8")
+            self._git(root, "add", ".")
+            self._git(root, "commit", "-m", "initial")
+            self._git(root, "branch", "base")
+            self._git(root, "checkout", "-q", "-b", "feature")
+            (root / "main.py").write_text("def main():\n    return 2\n", encoding="utf-8")
+            self._git(root, "add", ".")
+            self._git(root, "commit", "-m", "feature change")
+
+            app = create_app({"DATABASE_PATH": str(Path(database) / "test.sqlite3")})
+            client = app.test_client()
+            try:
+                client.post("/scan", json={"repo_path": str(root)})
+                page = client.get(
+                    "/compare/repository?base_ref=base&target_ref=feature",
+                    headers={"Accept": "text/html"},
+                )
+                self.assertEqual(page.status_code, 200)
+                self.assertIn(b'name="base_ref"', page.data)
+                self.assertIn(b'name="target_ref"', page.data)
+                self.assertIn(b"base", page.data)
+                self.assertIn(b"feature", page.data)
+                self.assertIn(b"git-ref-options", page.data)
+            finally:
+                app.extensions["repopilot_store"].close()
+
+    def test_repository_compare_page_has_explicit_empty_diff_state(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as database:
+            root = Path(directory)
+            self._git(root, "init", "-q")
+            (root / "main.py").write_text("def main():\n    return 1\n", encoding="utf-8")
+            self._git(root, "add", ".")
+            self._git(root, "commit", "-m", "initial")
+            self._git(root, "branch", "base")
+
+            app = create_app({"DATABASE_PATH": str(Path(database) / "test.sqlite3")})
+            client = app.test_client()
+            try:
+                client.post("/scan", json={"repo_path": str(root)})
+                page = client.get(
+                    "/compare/repository?base_ref=base&target_ref=base",
+                    headers={"Accept": "text/html"},
+                )
+                self.assertEqual(page.status_code, 200)
+                self.assertIn(b"No measurable changes between these refs.", page.data)
+            finally:
+                app.extensions["repopilot_store"].close()
+
     @staticmethod
     def _git(root: Path, *args: str) -> None:
         subprocess.run(

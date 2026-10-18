@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,6 +36,41 @@ class RepoPilotAnalysisEngineTests(unittest.TestCase):
             lcov_item = scan_repository(root).files[0]
             self.assertEqual(lcov_item.coverage_percent, 50.0)
             self.assertEqual(lcov_item.coverage_source, "lcov.info")
+
+    def test_modern_coverage_database_line_bits_are_attached_per_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "covered.py").write_text("one = 1\ntwo = 2\nthree = 3\nfour = 4\n", encoding="utf-8")
+            (root / "other.py").write_text("one = 1\ntwo = 2\n", encoding="utf-8")
+            database = root / ".coverage"
+            connection = sqlite3.connect(database)
+            try:
+                connection.executescript(
+                    "CREATE TABLE file (id INTEGER PRIMARY KEY, path TEXT NOT NULL);"
+                    "CREATE TABLE line_bits (file_id INTEGER PRIMARY KEY, numbits BLOB NOT NULL);"
+                )
+                # Bit n denotes executed source line n.  Lines 1 and 3 are
+                # covered in covered.py; only line 2 is covered in other.py.
+                connection.executemany(
+                    "INSERT INTO file(id, path) VALUES (?, ?)",
+                    [(1, "covered.py"), (2, "other.py")],
+                )
+                connection.executemany(
+                    "INSERT INTO line_bits(file_id, numbits) VALUES (?, ?)",
+                    [(1, bytes([0b00001010])), (2, bytes([0b00000100]))],
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            report = scan_repository(root)
+            files = {item.path: item for item in report.files}
+            self.assertEqual(files["covered.py"].coverage_percent, 50.0)
+            self.assertEqual(files["covered.py"].coverage_covered_lines, 2)
+            self.assertEqual(files["covered.py"].coverage_total_lines, 4)
+            self.assertEqual(files["covered.py"].coverage_source, ".coverage")
+            self.assertEqual(files["other.py"].coverage_percent, 50.0)
+            self.assertEqual(files["other.py"].coverage_covered_lines, 1)
 
     def test_unresolved_imports_do_not_create_fake_dependency_edges(self):
         with tempfile.TemporaryDirectory() as directory:
