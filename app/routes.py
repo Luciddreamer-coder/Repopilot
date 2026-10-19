@@ -654,10 +654,10 @@ def _graph(report) -> dict[str, Any]:
     ]
     edge_pairs = sorted({(edge["source"], edge["target"]) for edge in raw_edges})
 
-    node_width = 220
-    node_height = 76
+    node_width = 180
+    node_height = 86
     padding = 32
-    horizontal_gap = 80
+    horizontal_gap = 60
     vertical_gap = 48
 
     # A small, dependency-free layered layout.  Kahn's ordering gives

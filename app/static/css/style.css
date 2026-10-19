@@ -1773,24 +1773,25 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
 }
 
 .architecture-graph {
-  width: max(100%, 960px);
-  min-width: 960px;
+  width: 100%;
+  min-width: 0;
 }
 
 .architecture-node-name {
   fill: #f4f7fb;
-  paint-order: stroke;
-  stroke: var(--color-surface);
-  stroke-width: 2px;
-  stroke-linejoin: round;
+  stroke: none;
+  stroke-width: 0;
+  font-size: 14px;
 }
 
 .architecture-node-risk {
   fill: #c1ccda;
+  font-size: 11px;
 }
 
 .architecture-node-path {
   fill: #9aa8ba;
+  font-size: 10px;
 }
 
 .dependency-mini-graph {
@@ -1808,7 +1809,7 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
 
 .dependency-mini-graph .evidence-graph-node text {
   fill: #f4f7fb;
-  font: 700 11px ui-monospace, SFMono-Regular, Consolas, monospace;
+  font: 600 12px ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 .dependency-mini-graph .evidence-graph-node rect {
@@ -1829,5 +1830,87 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
 
   .architecture-graph {
     min-width: 960px;
+    width: 960px;
   }
+}
+
+/* The dashboard summary is intentionally a compact list, not a second graph.
+   One aligned column keeps file names and risk context readable in the card. */
+.dependency-summary-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, .85fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.dependency-summary-copy strong {
+  min-width: 0;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.dependency-summary-copy span {
+  max-width: 190px;
+  line-height: 1.35;
+}
+
+.dependency-panel .dependency-node-list {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.dependency-panel .dependency-node-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 29px;
+  gap: 10px;
+}
+
+.dependency-panel .dependency-node-list a {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.dependency-panel .dependency-node-list span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.graph-panel .graph-subtitle::after {
+  content: "  ·  Scroll horizontally to view all nodes";
+  color: var(--color-accent-secondary);
+}
+
+@media (max-width: 420px) {
+  .dependency-summary-copy {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .dependency-summary-copy span {
+    max-width: none;
+    text-align: left;
+  }
+}
+
+/* Keep the architecture map at its authored size. The container remains
+   scrollable, but the labels no longer shrink to fit the card. */
+.architecture-graph {
+  width: 1204px !important;
+  min-width: 1204px !important;
+}
+
+/* The evidence graph has generous whitespace around its six nodes. Use that
+   space to enlarge the labels instead of making people decode tiny SVG text. */
+.dependency-mini-graph svg {
+  width: 960px;
+  min-width: 960px;
+  height: 373px;
+}
+
+.dependency-mini-graph .evidence-graph-node text {
+  fill: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
 }
