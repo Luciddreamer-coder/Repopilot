@@ -1709,3 +1709,125 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
     margin-bottom: 12px;
   }
 }
+
+/* Make the data maps readable at their authored scale. Dense SVGs should
+   scroll horizontally instead of shrinking their labels into blur. */
+.trajectory-chart {
+  height: 165px;
+  margin-top: 28px;
+}
+
+.trajectory-key {
+  position: absolute;
+  top: -23px;
+  left: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.trajectory-key strong {
+  color: var(--color-accent-secondary);
+  font-weight: 800;
+}
+
+.trajectory-key strong::after {
+  content: ":";
+  color: var(--color-text-muted);
+}
+
+.trajectory-key span {
+  color: var(--color-text-muted);
+}
+
+.trajectory-point b,
+.trajectory-point small {
+  z-index: 3;
+  padding: 2px 5px;
+  border: 1px solid rgba(54,61,72,.9);
+  border-radius: 4px;
+  background: rgba(34,39,49,.96);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.trajectory-point b {
+  font-size: var(--font-size-xs);
+}
+
+.trajectory-point small {
+  max-width: none;
+  overflow: visible;
+  color: var(--color-accent-secondary);
+  font-size: var(--font-size-xs);
+  text-overflow: clip;
+}
+
+.architecture-stage {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.architecture-graph {
+  width: max(100%, 960px);
+  min-width: 960px;
+}
+
+.architecture-node-name {
+  fill: #f4f7fb;
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+
+.architecture-node-risk {
+  fill: #c1ccda;
+}
+
+.architecture-node-path {
+  fill: #9aa8ba;
+}
+
+.dependency-mini-graph {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.dependency-mini-graph svg {
+  width: 720px;
+  min-width: 720px;
+  height: 280px;
+  max-width: none;
+  shape-rendering: geometricPrecision;
+}
+
+.dependency-mini-graph .evidence-graph-node text {
+  fill: #f4f7fb;
+  font: 700 11px ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.dependency-mini-graph .evidence-graph-node rect {
+  vector-effect: non-scaling-stroke;
+}
+
+@media (max-width: 760px) {
+  .trajectory-chart {
+    height: 175px;
+    margin-top: 32px;
+  }
+
+  .trajectory-key {
+    top: -29px;
+    left: 0;
+    right: 0;
+  }
+
+  .architecture-graph {
+    min-width: 960px;
+  }
+}
