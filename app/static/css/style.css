@@ -1250,6 +1250,66 @@ textarea {
   }
 }
 
+/* Catch legacy metadata rules that predate the shared type scale. */
+.git-detail-grid span,
+.git-detail-grid small,
+.compare-form-heading p,
+.git-ref-field small,
+.snapshot-fallback-heading > span:last-child,
+.compare-form-status,
+.compare-empty-state p,
+.warning-group p,
+.file-finding p,
+.impact-evidence-item p,
+.impact-warning p,
+.impact-context-values span,
+.scan-hero-art > span,
+.dashboard-evidence-copy p,
+.dashboard-evidence-stats span,
+.evidence-overview-copy p,
+.evidence-overview-stat span,
+.evidence-callout,
+.evidence-footnote p,
+.report-cover p,
+.report-copy,
+.method-list,
+.coverage-panel-copy,
+.coverage-detail-copy p,
+.coverage-detail-value span,
+.coverage-unknown,
+.impact-card p,
+.impact-note p,
+.impact-note strong,
+.file-hero p,
+.repo-path,
+.detail-context-note,
+.impact-context-meta {
+  font-size: var(--font-size-sm) !important;
+  line-height: 1.6;
+}
+
+.git-detail-grid small,
+.scan-hero-art > span,
+.dashboard-evidence-stats span,
+.evidence-overview-stat span,
+.evidence-footnote p {
+  color: var(--color-text-secondary);
+}
+
+.evidence-status,
+.evidence-list em,
+.change-status,
+.risk-badge,
+.count-badge,
+.explainable-pill,
+.secure-pill,
+.demo-pill,
+.branch-pill,
+.commit-pill {
+  font-size: var(--font-size-xs) !important;
+  line-height: 1.35;
+}
+
 @media (max-width: 420px) {
   .graph-node {
     min-width: 84px;
@@ -1299,5 +1359,88 @@ textarea {
   .app-shell,
   .page-content {
     overflow-x: hidden;
+  }
+}
+
+/* Readability floor: the product is information-dense, so no supporting copy
+   should fall below a comfortable reading size on normal desktop displays. */
+:root {
+  --font-size-xs: .8125rem;
+  --font-size-sm: .875rem;
+  --font-size-body: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: clamp(1.75rem, 3vw, 2.3rem);
+  --font-size-display: clamp(2.25rem, 4.2vw, 3.1rem);
+  --line-height-body: 1.7;
+  --control-height: 50px;
+  --control-height-large: 54px;
+}
+
+body { font-size: var(--font-size-body); line-height: var(--line-height-body); }
+p, li, dd, dt, figcaption { line-height: 1.7; }
+small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
+.nav-link, .text-link, .command-trigger, .last-scan, .page-footer,
+.metric-label, .risk-caption, .metric-unit, .trend, .repo-meta,
+.file-cell strong, .file-cell small, .signal-row strong, .signal-row small,
+.finding-main p, .finding-recommendation, .impact-card p, .impact-note p,
+.report-copy, .method-list, .coverage-detail-copy p, .warning-group p,
+.file-finding p, .impact-evidence-item p, .impact-warning p,
+.evidence-card > p, .evidence-callout, .report-evidence-heading p {
+  font-size: var(--font-size-sm);
+}
+.eyebrow, .nav-label, .status-live, .demo-pill, .secure-pill,
+.live-chip, .finding-severity, .change-status, .coverage-state,
+.impact-picker label, .refactor-picker label, .snapshot-picker label,
+.git-ref-field label, .snapshot-fallback-grid label {
+  font-size: var(--font-size-xs) !important;
+}
+.button { font-size: var(--font-size-sm); min-height: var(--control-height); }
+.button-wide { min-height: var(--control-height-large); }
+.input-with-icon input, .git-ref-field input { height: var(--control-height-large); font-size: var(--font-size-sm); }
+.select-wrap select, .impact-select-row select, .snapshot-picker select,
+.search-field input, .filter-button { font-size: var(--font-size-sm); }
+.search-field, .filter-button { min-height: var(--control-height); }
+.metric-card { min-height: 168px; }
+.history-metric, .finding-summary-grid .metric-card, .graph-stat-grid .metric-card,
+.comparison-metric-grid .metric-card { min-height: 136px; }
+.panel-heading h2, .compare-summary h2, .compare-result-hero h2,
+.impact-hero h2, .evidence-card h2, .coverage-detail-copy h2 { font-size: var(--font-size-xl); }
+.risk-table th { font-size: var(--font-size-xs); }
+.risk-table td { font-size: var(--font-size-sm); padding-top: 19px; padding-bottom: 19px; }
+.dashboard-command-strip strong, .dashboard-command-strip small,
+.trajectory-point b, .trajectory-point small, .trajectory-footer,
+.delta-axis, .delta-bars-pair i b, .delta-bar-group small, .delta-legend,
+.graph-legend, .architecture-legend, .dependency-graph-caption,
+.ranking-matrix-legend, .evidence-graph-details, .configuration-list strong,
+.configuration-list span, .configuration-list small, .validation-rows span,
+.validation-rows small, .evidence-list-label, .evidence-list > span:not(.evidence-list-label),
+.evidence-list em, .evidence-deltas span, .report-evidence-grid span,
+.report-evidence-grid small { font-size: var(--font-size-xs); }
+.graph-subtitle, .dependency-summary-copy span, .dependency-node-list span,
+.coverage-panel-note, .coverage-panel-copy, .coverage-detail-value span,
+.coverage-unknown, .impact-context-meta, .detail-context-note { font-size: var(--font-size-sm); }
+.architecture-node-name { font-size: 18px; }
+.architecture-node-risk { font-size: 14px; }
+.architecture-node-path { font-size: 13px; }
+.architecture-node-flag { font-size: 11px; }
+.dependency-mini-graph .evidence-graph-node text { font-size: 14px; }
+.radar-axis, .scatter-axis-y, .scatter-axis-x, .scatter-quadrant,
+.scatter-point span, .scatter-point small { font-size: var(--font-size-xs); }
+.evidence-card, .coverage-risk-panel, .timeline-panel, .findings-panel,
+.graph-panel, .dependency-edge-table, .changed-files-panel, .report-section {
+  padding-top: 26px; padding-bottom: 26px;
+}
+.finding-main { padding: 21px 23px; }
+.timeline-item { padding-top: 21px; padding-bottom: 21px; }
+.file-finding, .impact-evidence-item, .impact-warning,
+.evidence-list > span:not(.evidence-list-label), .validation-rows div,
+.configuration-list > div { padding-top: 12px; padding-bottom: 12px; }
+
+@media (max-width: 760px) {
+  .metric-card { min-height: 156px; }
+  .evidence-card, .coverage-risk-panel, .timeline-panel, .findings-panel,
+  .graph-panel, .dependency-edge-table, .changed-files-panel, .report-section {
+    padding: 20px;
   }
 }
