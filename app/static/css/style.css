@@ -821,3 +821,483 @@ h3 {
   .dependency-summary-copy span { text-align: left; }
   .evidence-graph-details ul { grid-template-columns: 1fr; }
 }
+
+/* Final readability pass. Keep the Cozy Midnight tokens and page geometry, but
+   give the smallest UI text, controls, chart annotations, and data surfaces a
+   comfortable reading size. This block intentionally comes last so route-level
+   styles above cannot pull important content back down to tiny type. */
+:root {
+  --font-size-xs: .75rem;
+  --font-size-sm: .8125rem;
+  --font-size-body: .9375rem;
+  --font-size-lg: 1.0625rem;
+  --font-size-xl: 1.375rem;
+  --font-size-2xl: clamp(1.625rem, 2.8vw, 2.125rem);
+  --font-size-display: clamp(2.125rem, 4vw, 2.875rem);
+  --line-height-tight: 1.2;
+  --line-height-body: 1.65;
+  --control-height: 46px;
+  --control-height-large: 50px;
+}
+
+body {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+p,
+li,
+dd,
+dt,
+figcaption {
+  line-height: 1.65;
+}
+
+button,
+input,
+select,
+textarea {
+  line-height: 1.35;
+}
+
+.button {
+  min-height: var(--control-height);
+  padding-right: 17px;
+  padding-left: 17px;
+  font-size: var(--font-size-sm);
+}
+
+.button-wide {
+  min-height: var(--control-height-large);
+}
+
+.input-with-icon input,
+.git-ref-field input {
+  height: var(--control-height-large);
+}
+
+.select-wrap select,
+.impact-select-row select,
+.snapshot-picker select {
+  height: var(--control-height);
+  font-size: var(--font-size-sm);
+}
+
+.search-field {
+  min-height: var(--control-height);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.search-field input,
+.filter-button {
+  font-size: var(--font-size-sm);
+}
+
+.filter-button {
+  min-height: var(--control-height);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.breadcrumbs,
+.last-scan,
+.repo-meta,
+.detail-back,
+.git-date,
+.changed-file-row,
+.report-row,
+.file-hero p,
+.compare-summary p,
+.compare-result-hero p,
+.impact-hero p,
+.report-cover p,
+.compare-form-heading p,
+.compare-form-status,
+.detail-context-note,
+.impact-context-meta,
+.coverage-panel-note,
+.coverage-state,
+.graph-subtitle,
+.repo-path {
+  font-size: var(--font-size-sm);
+}
+
+.eyebrow,
+.nav-label,
+.status-live,
+.demo-pill,
+.secure-pill,
+.live-chip,
+.finding-severity,
+.change-status,
+.coverage-state,
+.impact-picker label,
+.refactor-picker label,
+.snapshot-picker label,
+.git-ref-field label,
+.snapshot-fallback-grid label {
+  font-size: var(--font-size-xs);
+}
+
+.nav-link,
+.workspace-copy strong,
+.sidebar-tip strong,
+.sidebar-tip p,
+.connection-status,
+.page-footer,
+.command-trigger,
+.text-link,
+.metric-label,
+.risk-caption,
+.metric-unit,
+.trend,
+.repo-identity h2,
+.file-cell strong,
+.file-cell small,
+.signal-row strong,
+.signal-row small,
+.finding-head h3,
+.finding-main p,
+.finding-recommendation,
+.impact-card p,
+.impact-note strong,
+.impact-note p,
+.formula-card > p,
+.report-copy,
+.method-list,
+.coverage-detail-copy p,
+.coverage-detail-value span,
+.coverage-unknown,
+.warning-group p,
+.file-finding strong,
+.impact-evidence-item strong,
+.impact-warning strong,
+.file-finding p,
+.impact-evidence-item p,
+.impact-warning p,
+.evidence-card > p,
+.evidence-callout,
+.evidence-score > span:not(.evidence-meter),
+.evidence-footnote strong,
+.evidence-footnote p,
+.report-evidence-heading p {
+  font-size: var(--font-size-sm);
+}
+
+.metric-label,
+.risk-caption,
+.signal-row small,
+.file-cell small,
+.evidence-score > span:not(.evidence-meter),
+.coverage-detail-value span,
+.coverage-unknown {
+  line-height: 1.5;
+}
+
+.metric-value-row strong,
+.detail-metric strong,
+.history-metric strong,
+.finding-summary-grid strong,
+.graph-stat-grid strong,
+.report-summary-grid strong,
+.report-evidence-grid strong {
+  line-height: 1.1;
+}
+
+.table-heading,
+.radar-panel,
+.dependency-panel,
+.signals-panel,
+.code-panel,
+.dependency-detail-grid > .panel,
+.timeline-panel,
+.findings-panel,
+.graph-panel,
+.dependency-edge-table,
+.changed-files-panel,
+.weights-panel,
+.report-section,
+.evidence-card,
+.coverage-risk-panel {
+  padding-top: 22px;
+  padding-bottom: 22px;
+}
+
+.risk-table th {
+  padding-top: 13px;
+  padding-bottom: 13px;
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.risk-table td {
+  padding-top: 17px;
+  padding-bottom: 17px;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.risk-table td .risk-badge,
+.risk-table td .risk-score,
+.risk-table td .text-link {
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-command-strip strong,
+.dashboard-command-strip small,
+.strip-kicker,
+.trajectory-point b,
+.trajectory-point small,
+.trajectory-footer,
+.delta-axis,
+.delta-bars-pair i b,
+.delta-bar-group small,
+.delta-legend,
+.graph-legend,
+.architecture-legend,
+.dependency-graph-caption,
+.ranking-matrix-legend,
+.legend-line,
+.legend-node,
+.evidence-graph-details,
+.evidence-graph-details ul,
+.configuration-list strong,
+.configuration-list span,
+.configuration-list small,
+.validation-rows span,
+.validation-rows small,
+.evidence-list-label,
+.evidence-list > span:not(.evidence-list-label),
+.evidence-list em,
+.evidence-deltas span,
+.report-evidence-grid span,
+.report-evidence-grid small {
+  font-size: var(--font-size-xs);
+}
+
+.dashboard-command-strip strong,
+.dashboard-command-strip small,
+.trajectory-point small,
+.delta-bar-group small,
+.graph-legend,
+.architecture-legend,
+.dependency-graph-caption,
+.ranking-matrix-legend,
+.evidence-graph-details,
+.configuration-list span,
+.configuration-list small,
+.validation-rows span,
+.validation-rows small,
+.evidence-deltas span,
+.report-evidence-grid span,
+.report-evidence-grid small {
+  line-height: 1.45;
+}
+
+.dep-node {
+  min-width: 58px;
+  min-height: 42px;
+  padding: 6px 9px;
+  font-size: var(--font-size-sm);
+  line-height: 1.25;
+  text-align: center;
+}
+
+.dep-node small {
+  font-size: var(--font-size-xs);
+}
+
+.architecture-node-name {
+  font-size: 17px;
+}
+
+.architecture-node-risk {
+  font-size: 13px;
+}
+
+.architecture-node-path {
+  font-size: 12px;
+}
+
+.architecture-node-flag {
+  font-size: 10px;
+}
+
+.architecture-legend,
+.graph-legend,
+.dependency-graph-caption,
+.delta-legend,
+.ranking-matrix-legend {
+  gap: 12px;
+}
+
+.legend-dot,
+.graph-dot,
+.legend-node {
+  width: 9px;
+  height: 9px;
+}
+
+.legend-line {
+  width: 24px;
+}
+
+.dependency-mini-graph .evidence-graph-node text {
+  font-size: 13px;
+}
+
+.graph-node > b {
+  font-size: 12px;
+}
+
+.graph-node > small {
+  font-size: var(--font-size-xs);
+}
+
+.radar-axis,
+.scatter-axis-y,
+.scatter-axis-x,
+.scatter-quadrant,
+.scatter-point span,
+.scatter-point small {
+  font-size: var(--font-size-xs);
+}
+
+.radar-axis,
+.scatter-quadrant {
+  line-height: 1.35;
+}
+
+.ranking-matrix-corner,
+.ranking-matrix-head,
+.ranking-matrix-file,
+.ranking-cell,
+.ranking-cell b {
+  min-height: 34px;
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.ranking-matrix-corner,
+.ranking-matrix-head,
+.ranking-matrix-file,
+.ranking-cell {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.file-finding,
+.impact-evidence-item,
+.impact-warning,
+.evidence-list > span:not(.evidence-list-label),
+.validation-rows div,
+.configuration-list > div {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.impact-chip-list a,
+.impact-chip-list span,
+.warning-chip-list span,
+.cycle-list span {
+  font-size: var(--font-size-xs);
+}
+
+.impact-chip-meta {
+  font-size: var(--font-size-xs);
+}
+
+.evidence-status,
+.evidence-list em {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.evidence-status {
+  font-size: var(--font-size-xs);
+}
+
+@media (max-width: 760px) {
+  .page-hero h1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .metric-card,
+  .detail-metric {
+    min-height: 148px;
+  }
+
+  .metric-card,
+  .scan-form-panel,
+  .signals-panel,
+  .code-panel,
+  .dependency-detail-grid > .panel,
+  .evidence-card,
+  .coverage-risk-panel {
+    padding: 18px;
+  }
+
+  .architecture-stage {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .repo-meta,
+  .file-hero-actions,
+  .evidence-card-top {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .graph-node {
+    min-width: 84px;
+  }
+
+  .graph-node > b {
+    font-size: 11px;
+  }
+
+  .dep-node {
+    min-width: 54px;
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .radar-axis {
+    max-width: 120px;
+  }
+}
+
+/* Keep enlarged annotations clipped to their responsive surface, rather than
+   allowing visible SVG labels to widen the document on narrow screens. */
+.app-shell,
+.main-content,
+.page-content {
+  max-width: 100%;
+}
+
+.app-shell,
+.page-content {
+  overflow-x: clip;
+}
+
+.radar-layout,
+.radar-chart {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.radar-axis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+}
+
+@supports not (overflow: clip) {
+  .app-shell,
+  .page-content {
+    overflow-x: hidden;
+  }
+}
