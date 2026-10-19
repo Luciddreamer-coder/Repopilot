@@ -1448,15 +1448,29 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
 /* Final responsive polish: keep the experiment mark and navigation content
    inside their cards even when the dashboard is viewed at a narrow width. */
 .experiment-panel {
-  display: grid;
-  grid-template-columns: clamp(92px, 30%, 132px) minmax(0, 1fr);
-  align-items: center;
-  gap: 18px;
+  display: flex;
+  min-height: 300px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 14px;
   overflow: hidden;
 }
 
 .experiment-panel > div:last-child {
+  width: 100%;
   min-width: 0;
+  overflow: visible;
+  text-align: center;
+}
+
+.experiment-panel .eyebrow {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 .experiment-panel h2,
@@ -1464,11 +1478,18 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
   overflow-wrap: anywhere;
 }
 
+.experiment-panel h2 {
+  line-height: 1.15;
+  text-align: center;
+}
+
 .experiment-panel p {
   margin: 9px 0 16px;
+  text-align: center;
 }
 
 .experiment-panel .button {
+  width: 100%;
   max-width: 100%;
   white-space: normal;
   text-align: center;
@@ -1480,6 +1501,7 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
   height: auto;
   aspect-ratio: 1;
   margin: 0 auto;
+  flex: 0 0 auto;
   border: 1px solid rgba(112,214,196,.28);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(112,214,196,.12), transparent 65%);
