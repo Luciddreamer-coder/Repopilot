@@ -1778,19 +1778,22 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
 }
 
 .architecture-node-name {
-  fill: #f4f7fb;
+  fill: #ffffff !important;
+  color: #ffffff !important;
   stroke: none;
   stroke-width: 0;
   font-size: 14px;
 }
 
 .architecture-node-risk {
-  fill: #c1ccda;
+  fill: #ffffff !important;
+  color: #ffffff !important;
   font-size: 11px;
 }
 
 .architecture-node-path {
-  fill: #9aa8ba;
+  fill: #ffffff !important;
+  color: #ffffff !important;
   font-size: 10px;
 }
 
@@ -1808,7 +1811,8 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
 }
 
 .dependency-mini-graph .evidence-graph-node text {
-  fill: #f4f7fb;
+  fill: #ffffff !important;
+  color: #ffffff !important;
   font: 600 12px ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
@@ -1894,23 +1898,21 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
   }
 }
 
-/* Keep the architecture map at its authored size. The container remains
-   scrollable, but the labels no longer shrink to fit the card. */
+/* Keep both maps close to their authored scale. The containers remain
+   scrollable, but the labels do not become oversized or blur from scaling. */
 .architecture-graph {
-  width: 1204px !important;
-  min-width: 1204px !important;
+  width: 964px !important;
+  min-width: 964px !important;
 }
 
-/* The evidence graph has generous whitespace around its six nodes. Use that
-   space to enlarge the labels instead of making people decode tiny SVG text. */
 .dependency-mini-graph svg {
-  width: 960px;
-  min-width: 960px;
-  height: 373px;
+  width: 720px;
+  min-width: 720px;
+  height: 280px;
 }
 
 .dependency-mini-graph .evidence-graph-node text {
-  fill: #ffffff;
-  font-size: 16px;
-  font-weight: 700;
+  fill: #ffffff !important;
+  font-size: 11px;
+  font-weight: 600;
 }
