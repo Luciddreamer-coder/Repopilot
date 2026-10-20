@@ -26,7 +26,7 @@ with `Accept: application/json`, so the prototype remains easy to integrate:
 | --- | --- |
 | `GET /` or `GET /dashboard` | Dashboard view model and summary hotspots |
 | `GET /scan` | Repository scan form metadata |
-| `POST /scan` | Scan `{ "repo_path": "..." }`; omit it for demo mode |
+| `POST /scan` | Scan `{ "repo_path": "..." }`; accepts local paths or GitHub HTTPS URLs |
 | `GET /file/<path>` | File detail, source preview, and risk signals |
 | `GET /compare?base=...&target=...` | Compare two analyzed files |
 | `GET /api/report` | Full report JSON (`?include_content=true` adds source) |
@@ -72,7 +72,7 @@ remain supported.
 
 ## Product flow
 
-1. Open **New scan** and enter a local repository path, or choose the demo.
+1. Open **New scan** and enter a local repository path, a GitHub HTTPS URL, or choose the demo.
 2. Start at **Overview** to see the transparent three-signal Risk Radar and
    the prioritized file table.
 3. Select a hotspot to inspect the evidence behind its score, dependency reach,
@@ -100,10 +100,20 @@ covered lines, missing lines, and percentage.
 The initial demo session includes a simulated baseline snapshot so the
 before/after experience is immediately visible without needing two real scans.
 
-Form-encoded `repo_path` is also accepted by `POST /scan`. Unsupported or
-empty paths safely fall back to the demo repository. Risk signals are
-explainable and combine complexity, recent change frequency, and dependency
-reach (direct dependencies plus downstream dependents).
+Form-encoded `repo_path` is also accepted by `POST /scan`. GitHub HTTPS sources
+are validated, cloned with `--depth 1` into a local cache, and then scanned by
+the same local analysis engine. Repeated scans reuse the cached checkout. Public
+repositories work without credentials; private repositories use Git's existing
+credential helper configuration, and RepoPilot never stores tokens. Invalid
+remote sources return an actionable 400 error instead of silently switching to
+demo mode. Unsupported or empty local paths retain the existing demo fallback.
+Risk signals are explainable and combine complexity, recent change frequency,
+and dependency reach (direct dependencies plus downstream dependents).
+
+Remote clone safety defaults to a 30-second Git timeout and a 500 MB checkout
+limit. Set `REPOPILOT_REMOTE_CACHE` to choose the local cache directory or
+`REPOPILOT_REMOTE_MAX_MB` to change the size limit. Failed or oversized clones
+are removed automatically.
 
 ## Coverage and dependency boundaries
 

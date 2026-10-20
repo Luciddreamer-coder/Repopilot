@@ -50,7 +50,7 @@
     const progress = $('[data-scan-progress]', overlay);
     const percent = $('[data-scan-percent]', overlay);
     const status = $('[data-scan-status]', overlay);
-    const messages = ['Discovering source files…', 'Mapping import relationships…', 'Scoring engineering risk…', 'Preparing your radar…'];
+    const messages = ['Validating repository source…', 'Cloning checkout if needed…', 'Mapping import relationships…', 'Scoring engineering risk…'];
     let value = 0;
     const timer = window.setInterval(() => {
       value = Math.min(value + Math.floor(Math.random() * 17) + 8, 92);

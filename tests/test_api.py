@@ -34,6 +34,13 @@ class RepoPilotApiTests(unittest.TestCase):
         missing = self.client.get("/file/does-not-exist.py")
         self.assertEqual(missing.status_code, 404)
 
+    def test_scan_form_exposes_source_selector_and_local_path_errors(self):
+        form = self.client.get("/scan", headers={"Accept": "text/html"})
+        self.assertIn(b'name="source_type"', form.data)
+        response = self.client.post("/scan", json={"repo_path": "/definitely/not/a/repository"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Local repository folder was not found", response.get_json()["message"])
+
     def test_scan_local_repository_and_read_file(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -45,6 +52,12 @@ class RepoPilotApiTests(unittest.TestCase):
             detail = self.client.get("/file/main.py")
             self.assertEqual(detail.status_code, 200)
             self.assertEqual(detail.get_json()["file"]["language"], "Python")
+
+    def test_invalid_github_source_returns_actionable_error(self):
+        response = self.client.post("/scan", json={"repo_path": "https://example.com/not-github.git"})
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(response.get_json()["error"])
+        self.assertIn("GitHub URL", response.get_json()["message"])
 
     def test_report_and_compare(self):
         report = self.client.get("/api/report")

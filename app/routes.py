@@ -12,6 +12,7 @@ from flask import Blueprint, Response, current_app, jsonify, render_template, re
 
 from .history import DEFAULT_WEIGHTS, SnapshotStore
 from .scanner import git_compare
+from .repository_sources import RepositorySourceError
 
 api = Blueprint("api", __name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -173,7 +174,14 @@ def scan():
         if _wants_json():
             return jsonify(body)
         return render_template("scan.html", repo=_report().repository, scan=body, generated_at="just now")
-    _store().scan(_requested_path())
+    requested = _requested_path()
+    try:
+        _store().scan(requested)
+    except (RepositorySourceError, ValueError) as exc:
+        body = {"view": "scan", "error": True, "message": str(exc), "repository_path": requested}
+        if _wants_json() or request.is_json:
+            return jsonify(body), 400
+        return render_template("scan.html", repo={"path": requested or ""}, scan=body, generated_at="just now"), 400
     if _wants_json() or request.is_json:
         return jsonify(_payload(view="dashboard")), 200
     return render_template("dashboard.html", **_context(view="dashboard")), 200

@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 
 from .demo_data import demo_report
 from .models import FileAnalysis, RepositoryReport, RiskSignal
+from .repository_sources import resolve_repository_source
 
 SUPPORTED = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rb", ".rs", ".md"}
 SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache", ".pytest_cache"}
@@ -570,17 +571,20 @@ def _cache_report(key: tuple[object, ...], report: RepositoryReport) -> Reposito
 
 
 def scan_repository(repository_path: str | os.PathLike[str] | None) -> RepositoryReport:
-    """Scan a local path, falling back to deterministic demo data if absent/invalid."""
+    """Scan a local path or GitHub HTTPS source."""
     if not repository_path or str(repository_path).strip().lower() in {"demo", "demo://repo-pilot", "example"}:
         return demo_report()
-    root = Path(repository_path).expanduser()
+    resolved = resolve_repository_source(repository_path)
+    if resolved is None:
+        return demo_report()
+    root = resolved.path
     if not root.is_dir():
         return demo_report()
 
     paths = sorted(path for path in root.rglob("*") if path.is_file() and path.suffix.lower() in SUPPORTED and not any(part in SKIP_DIRS for part in path.parts))
     paths = paths[:250]
     if not paths:
-        return demo_report()
+        raise ValueError("Repository contains no supported source files to scan.")
     cache_key = _scan_cache_key(root, paths)
     cached = _SCAN_CACHE.get(cache_key)
     if cached is not None:
@@ -663,7 +667,7 @@ def scan_repository(repository_path: str | os.PathLike[str] | None) -> Repositor
             unresolved_imports.get(rel, []), cycles_by_file.get(rel, []),
         ))
     report = RepositoryReport(
-        repository={"name": root.name, "path": str(root), "branch": _git_branch(root), "commit": _git_commit(root), "git": _git_repository_metrics(root)},
+        repository={"name": root.name, "path": str(root), "branch": _git_branch(root), "commit": _git_commit(root), "git": _git_repository_metrics(root), "source_type": resolved.source_type, "source_url": resolved.source_url},
         files=analyses,
         generated_at=datetime.now(timezone.utc).isoformat(),
         demo_mode=False,

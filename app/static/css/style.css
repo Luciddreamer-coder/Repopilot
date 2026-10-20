@@ -1488,6 +1488,24 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
   text-align: center;
 }
 
+.source-support-note {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(141,185,245,.22);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  background: rgba(141,185,245,.06);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.source-support-note strong {
+  color: var(--color-accent-secondary);
+}
+
 .experiment-panel .button {
   width: 100%;
   max-width: 100%;
