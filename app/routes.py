@@ -662,8 +662,8 @@ def _graph(report) -> dict[str, Any]:
     ]
     edge_pairs = sorted({(edge["source"], edge["target"]) for edge in raw_edges})
 
-    node_width = 180
-    node_height = 86
+    node_width = 300
+    node_height = 104
     padding = 32
     horizontal_gap = 60
     vertical_gap = 48
@@ -740,6 +740,10 @@ def _graph(report) -> dict[str, Any]:
     def cycle_for(source: str, target: str) -> list[str] | None:
         return next((sorted(component) for component in cycle_sets if source in component and target in component), None)
 
+    def display_text(value: str, limit: int) -> str:
+        """Keep SVG labels inside their cards while retaining full paths in links."""
+        return value if len(value) <= limit else f"{value[:limit - 1]}…"
+
     def edge_path(source: str, target: str) -> str | None:
         source_position = positions.get(source)
         target_position = positions.get(target)
@@ -775,8 +779,9 @@ def _graph(report) -> dict[str, Any]:
         position = positions[item.path]
         nodes.append({
             "id": item.path,
-            "label": item.path,
-            "short_label": Path(item.path).name,
+            "label": display_text(item.path, 36),
+            "full_label": item.path,
+            "short_label": display_text(Path(item.path).name, 30),
             "language": item.language,
             "risk_score": item.risk_score,
             "risk_level": item.risk_level,
