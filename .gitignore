@@ -1,9 +1,80 @@
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+coverage.json
+
+# Virtual environments
 .venv/
 venv/
-.pytest_cache/
+env/
+ENV/
+.env/
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Local application state
 instance/
 *.sqlite3
+*.sqlite3-journal
 *.db
+*.db-shm
+*.db-wal
 *.log
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+cache/
+
+# RepoPilot remote clone/cache directories
+repopilot-github-cache/
+.repopilot-cache/
+
+# Build and packaging output
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+wheelhouse/
+
+# Local experiment and benchmark output
+reports/experiments/*.json.tmp
+reports/experiments/*.md.tmp
+benchmarks/*.json
+benchmarks/*.csv
+
+# IDE and editor files
+.idea/
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vs/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local agent/app workspace data
+.opencode/
+.omnirush/
+.kilo/
