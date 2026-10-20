@@ -1,220 +1,420 @@
-# RepoPilot — Understand. Diagnose. Improve.
+# RepoPilot
 
-RepoPilot is a local-only Flask prototype for repository intelligence and
-engineering risk analysis. It pairs an explainable Python analysis engine with
-a polished dark developer dashboard: Risk Radar, dependency pulse, prioritized
-hotspots, file evidence, source previews, and before/after comparison.
+> **Understand. Diagnose. Improve.**
 
-The built-in `repo-pilot-demo` makes the interface immediately explorable. No
-API key, external database, frontend build tool, or external service is
-required; snapshots are stored in a local SQLite file.
+RepoPilot is a local-first repository intelligence tool. It scans a codebase,
+explains the signals behind engineering risk, maps local dependencies, and
+helps compare changes over time without uploading source code to RepoPilot.
 
-## Run locally
+The project combines a dependency-light Flask application, a deterministic
+Python scanner, a server-rendered dashboard, and a local SQLite snapshot store.
+It is designed to run from a clean checkout with no frontend build step and no
+external service dependency.
+
+## Highlights
+
+- **Local repository scans** from an absolute folder path.
+- **Public and private GitHub HTTPS scans** using the machine's existing Git
+  credential configuration.
+- **Explainable risk signals** for complexity, recent change activity, and
+  dependency reach.
+- **Dependency map** with resolved edges, circular components, and unresolved
+  imports kept separate from the graph.
+- **Coverage-aware prioritization** from Cobertura XML, LCOV, and coverage.py
+  SQLite databases.
+- **Snapshot history** stored locally in SQLite.
+- **File evidence** with source previews, Git activity, and structural warnings.
+- **File and repository comparisons** using snapshots, branches, or commits.
+- **Preview-only refactor analysis** and deterministic controlled experiments.
+- **CLI quality gates** for local development and CI.
+- **Docker support** with Git installed for remote repository cloning.
+
+## Screens and workflow
+
+1. Open **New scan**.
+2. Enter a local folder, a GitHub HTTPS URL, or choose the built-in demo.
+3. Review the **Overview** risk radar and prioritized hotspots.
+4. Open a file to inspect its score, evidence, dependencies, coverage, and
+   source preview.
+5. Use **Dependency map**, **Impact preview**, **Compare files**, or
+   **Scan history** to explore the result.
+
+The **Evidence Center** contains stable, controlled experiment output. It is
+intentionally based on the checked-in fixture and does not change when a
+different repository is scanned. The live repository graph is shown under
+**Dependency map**.
+
+## Requirements
+
+- Python `3.12.8` (pinned in [`.python-version`](.python-version))
+- Git on `PATH` for GitHub URL scans
+- Windows, macOS, or Linux
+
+The application dependencies are pinned in
+[`requirements.lock`](requirements.lock). No Node.js installation is required.
+
+## Quick start
+
+### Windows PowerShell
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.lock
+python -m pip install --requirement requirements.lock
 python app.py
 ```
 
-The app is then available at <http://127.0.0.1:5000>. Open it in a browser to
-use the server-rendered dashboard. The same routes return JSON when requested
-with `Accept: application/json`, so the prototype remains easy to integrate:
+### macOS or Linux
 
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /` or `GET /dashboard` | Dashboard view model and summary hotspots |
-| `GET /scan` | Repository scan form metadata |
-| `POST /scan` | Scan `{ "repo_path": "..." }`; accepts local paths or GitHub HTTPS URLs |
-| `GET /file/<path>` | File detail, source preview, and risk signals |
-| `GET /compare?base=...&target=...` | Compare two analyzed files |
-| `GET /api/report` | Full report JSON (`?include_content=true` adds source) |
-| `GET /health` | Liveness check |
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --requirement requirements.lock
+python app.py
+```
 
-## Backend intelligence endpoints
+Open <http://127.0.0.1:5000> after the server starts.
 
-The SQLite-backed snapshot store starts with the demo baseline/current reports
-only when its database is empty, then adds a snapshot after each scan. Scans and
-the current snapshot survive app restarts. These additive JSON endpoints work
-with the current report:
+The development entrypoint enables Flask debug mode. For a production
+deployment, run behind a production WSGI server and configure the deployment's
+process manager separately.
 
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /api/history` (also `/api/snapshots`, `/api/timeline`) | Snapshot history and timeline |
-| `GET /api/snapshots/<id>` | Full report for one snapshot |
-| `POST /api/snapshots/<id>/select` | Persist the active snapshot selection |
-| `GET /api/repository/compare?before=...&after=...` | Repository-level before/after comparison |
-| `GET /api/findings` | Structured findings with `new`, `open`, `improved`, `regressed`, or `resolved` lifecycle status |
-| `GET /api/findings/compare` | Finding lifecycle changes between two snapshots |
-| `GET /api/git/activity` | File-level Git churn, line additions/deletions, authors, and recency |
-| `GET /api/git/compare?base=...&target=...` | Read-only commit/branch diff with statuses, numstat, and commit evidence |
-| `GET /api/dependency-graph` | Resolved edges plus unresolved imports and circular dependency components |
-| `GET /api/change-impact?file=...` | Change-impact preview for a selected file |
-| `GET/POST /api/scoring/weights` | Read or configure normalized `complexity`, `change_frequency`, and `dependency_reach` weights; form and query values are accepted |
-| `GET /api/report/markdown` | Download the current report as Markdown |
-| `GET /api/refactor?file=...` | Deterministic, preview-only refactor simulation data |
-| `GET /api/experiments` | Generated evidence for controlled experiments A-D |
-| `GET /reports/experiments/experiments.json` | Download machine-readable experiment evidence |
-| `GET /reports/experiments/experiments.md` | Download reviewable experiment evidence |
+## Scan a repository
 
-The same backend data is available through the non-`/api` aliases documented by
-the route responses. Invalid files and invalid scoring weights return a JSON
-error with HTTP 404 or 400 respectively.
+### From the web interface
 
-Repository comparison and change-impact requests also accept local Git refs
-without checking out either side. Use `base_commit`/`target_commit` or
-`base_branch`/`target_branch` (the shorter `base_ref`/`target_ref` aliases are
-also accepted). Git-backed responses include resolved commit evidence, branch
-names, commit subjects, changed-file status, and per-file line additions and
-deletions. Existing snapshot selectors (`before`/`after`, `base`/`target`)
-remain supported.
+Open **New scan** and enter one of these values:
 
-## Product flow
+```text
+C:\projects\my-repository
+/Users/you/code/project
+/home/you/project
+https://github.com/owner/repository
+https://github.com/owner/repository.git
+```
 
-1. Open **New scan** and enter a local repository path, a GitHub HTTPS URL, or choose the demo.
-2. Start at **Overview** to see the transparent three-signal Risk Radar and
-   the prioritized file table.
-3. Select a hotspot to inspect the evidence behind its score, dependency reach,
-   and source preview.
-4. Use **Compare files** to put two files side by side and inspect risk, size,
-   and dependency deltas.
+Local scans are analyzed in place. GitHub HTTPS sources are shallow-cloned into
+the local cache first, then analyzed by the same scanner. The source checkout
+and scan remain local.
 
-The visual layer is built with Jinja templates, CSS, inline SVG, and small
-vanilla JavaScript interactions. It includes responsive layouts, reduced-motion
-support, mobile navigation, filtering, a local scan progress state, keyboard
-shortcuts, command palette, copy-to-clipboard for source previews, restrained
-dependency mapping, the Cozy Midnight visual system, and a refactor preview.
+### From the API
 
-The browser prototype also includes `/history`, `/findings`, `/dependencies`,
-`/impact`, `/compare/repository`, `/settings/scoring`, `/report`, `/refactor`,
-and `/experiments` Evidence Center. The initial demo session includes a simulated
-baseline snapshot so the before/after experience is immediately visible without
-needing two real scans.
+```bash
+curl -X POST http://127.0.0.1:5000/scan \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{"repo_path":"https://github.com/psf/requests.git"}'
+```
 
-The Overview also includes a truthful Risk vs Coverage map when coverage data is
-available. Files in the high-risk/low-coverage quadrant are prioritization
-candidates; repositories without coverage reports show an explicit empty state
-instead of fabricated values. File detail pages expose the same coverage source,
-covered lines, missing lines, and percentage.
-The initial demo session includes a simulated baseline snapshot so the
-before/after experience is immediately visible without needing two real scans.
+Form-encoded `repo_path` is also accepted. A successful response contains the
+report plus repository metadata such as `source_type`, `source_url`, and the
+local checkout `path`.
 
-Form-encoded `repo_path` is also accepted by `POST /scan`. GitHub HTTPS sources
-are validated, cloned with `--depth 1` into a local cache, and then scanned by
-the same local analysis engine. Repeated scans reuse the cached checkout. Public
-repositories work without credentials; private repositories use Git's existing
-credential helper configuration, and RepoPilot never stores tokens. Invalid
-remote sources return an actionable 400 error instead of silently switching to
-demo mode. Unsupported or empty local paths retain the existing demo fallback.
-Risk signals are explainable and combine complexity, recent change frequency,
-and dependency reach (direct dependencies plus downstream dependents).
+### Authentication and privacy
 
-Remote clone safety defaults to a 30-second Git timeout and a 500 MB checkout
-limit. Set `REPOPILOT_REMOTE_CACHE` to choose the local cache directory or
-`REPOPILOT_REMOTE_MAX_MB` to change the size limit. Failed or oversized clones
-are removed automatically.
+Public repositories need no additional credentials. For private repositories,
+RepoPilot delegates authentication to Git, including configured credential
+helpers and existing machine authentication. Do not put access tokens in the
+repository path, logs, database, reports, or environment files.
 
-## Coverage and dependency boundaries
+RepoPilot supports HTTPS Git repository URLs. SSH clone URLs are not accepted
+by the web scan input at this time.
 
-When a scanned repository contains one of these local reports, RepoPilot attaches
-per-file line coverage and emits a `low_coverage` signal below 80%:
+## Remote clone safety
 
-- `coverage.xml` (Cobertura-style)
+Remote scans use conservative defaults:
+
+- `git clone --depth 1 --no-tags`
+- 30-second clone timeout
+- 500 MB checkout size limit
+- Failed and oversized checkouts are deleted
+- Successful checkouts are reused by normalized URL
+- GitHub is allowed by default; additional HTTPS Git hosts require an explicit
+  allowlist
+
+Configure these values before starting the app:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `REPOPILOT_REMOTE_CACHE` | system temp directory | Remote checkout cache location |
+| `REPOPILOT_REMOTE_TIMEOUT` | `30` | Clone timeout in seconds |
+| `REPOPILOT_REMOTE_MAX_MB` | `500` | Maximum checkout size |
+| `REPOPILOT_ALLOWED_GIT_HOSTS` | `github.com,www.github.com` | Comma-separated HTTPS Git hosts |
+
+Example:
+
+```bash
+export REPOPILOT_REMOTE_CACHE="$HOME/.cache/repopilot/git"
+export REPOPILOT_REMOTE_TIMEOUT=60
+export REPOPILOT_REMOTE_MAX_MB=1000
+export REPOPILOT_ALLOWED_GIT_HOSTS="github.com,git.example.com"
+python app.py
+```
+
+## What the scanner analyzes
+
+RepoPilot currently considers these file types:
+
+```text
+.py .js .jsx .ts .tsx .java .go .rb .rs .md
+```
+
+The scanner ignores common generated or dependency directories such as
+`.git`, virtual environments, `node_modules`, bytecode caches, and test caches.
+It analyzes at most 250 supported files per scan to keep the dashboard
+responsive.
+
+### Risk signals
+
+Each analyzed file receives explainable signals for:
+
+- **Complexity** — file size, functions, and branch points.
+- **Change frequency** — recent Git activity, churn, and contributors when
+  history is available.
+- **Dependency reach** — direct local imports and downstream dependents.
+- **Low coverage** — emitted when detected line coverage is below 80%.
+
+The final risk score is a weighted prioritization aid, not a claim that a file
+contains a defect.
+
+### Dependency boundaries
+
+Dependency analysis is deliberately conservative. Local imports are resolved
+when they match files in the scan. External, ambiguous, or unresolved imports
+are reported separately rather than turned into invented graph edges. This is
+why a repository can show many nodes but zero resolved connections.
+
+### Coverage reports
+
+If present at the repository root, RepoPilot can read:
+
+- `coverage.xml` in Cobertura format
 - `lcov.info`
-- `.coverage` SQLite files from coverage.py, including modern `line_bits`
-  bitset tables and legacy `line` tables. The bitsets are decoded with the
-  Python standard library, so installing coverage.py is optional. Unsupported
-  or unreadable database schemas stay unknown (no fabricated coverage values).
+- `.coverage` SQLite databases from coverage.py, including modern `line_bits`
+  and legacy `line` tables
 
-Static dependency analysis is conservative. It resolves known local relative
-imports, lists unresolved imports separately, and reports circular dependency
-components without inventing edges for third-party or runtime-only imports.
+Unknown or unreadable coverage stays unknown; the scanner does not fabricate
+coverage values.
 
-## Local persistence
+## Persistence
 
-By default the app creates `instance/repopilot.sqlite3`; the instance directory
-and SQLite files are ignored by git. Set `REPOPILOT_DATABASE_PATH` (or pass
-`DATABASE_PATH` to `create_app`) to use another database, including an isolated
-temporary database in tests:
+The default database is:
+
+```text
+instance/repopilot.sqlite3
+```
+
+The `instance` directory and SQLite files are ignored by Git. Override the
+database location with `REPOPILOT_DATABASE_PATH`:
 
 ```powershell
 $env:REPOPILOT_DATABASE_PATH = "C:\data\repopilot.sqlite3"
 python app.py
 ```
 
-## Verify
+Scans create snapshots that survive application restarts. The built-in demo
+seeds initial snapshots only when the database is empty.
 
-```powershell
-make test
-python -m compileall app app.py
-```
+## Web routes and API
 
-## Command-line tooling
+All browser routes return HTML by default. The same view-model routes return
+JSON when requested with `Accept: application/json`; routes beginning with
+`/api/` always return JSON.
 
-RepoPilot also provides a dependency-free CLI for local scans and CI quality
-gates. It uses the same scanner and SQLite-backed `SnapshotStore` as the web
-application. By default, each CLI invocation uses a temporary isolated
-database, so it does not mutate the web application's instance database or its
-`REPOPILOT_DATABASE_PATH` setting. Pass `--database PATH` explicitly (before
-the subcommand) when you want snapshot history to persist between invocations:
+### Primary routes
 
-```powershell
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/` or `/dashboard` | Overview dashboard |
+| `GET` | `/scan` | Scan form metadata |
+| `POST` | `/scan` | Scan a local path or GitHub HTTPS URL |
+| `GET` | `/file/<path>` | File evidence and source preview |
+| `GET` | `/compare` | Compare two analyzed files |
+| `GET` | `/history` | Snapshot timeline |
+| `GET` | `/findings` | Finding lifecycle view |
+| `GET` | `/dependencies` | Current repository dependency map |
+| `GET` | `/impact` | Change-impact preview |
+| `GET` | `/compare/repository` | Repository snapshot/Git comparison |
+| `GET` | `/settings/scoring` | Configure scoring weights |
+| `GET` | `/report` | Render a Markdown-style report view |
+| `GET` | `/refactor` | Preview-only refactor simulation |
+| `GET` | `/experiments` | Controlled experiment evidence |
+
+### JSON endpoints
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness response |
+| `GET` | `/api/report` | Current report; use `include_content=true` for source |
+| `GET` | `/api/history` | Snapshot history and timeline |
+| `GET` | `/api/snapshots/<id>` | Full report for one snapshot |
+| `POST` | `/api/snapshots/<id>/select` | Select the active snapshot |
+| `GET` | `/api/findings` | Structured findings and lifecycle status |
+| `GET` | `/api/findings/compare` | Finding changes between snapshots |
+| `GET` | `/api/dependency-graph` | Resolved edges, unresolved imports, and cycles |
+| `GET` | `/api/change-impact?file=...` | Impact preview for a file |
+| `GET` | `/api/git/activity` | Git churn and author evidence |
+| `GET` | `/api/git/compare?base=...&target=...` | Read-only Git diff evidence |
+| `GET/POST` | `/api/scoring/weights` | Read or update normalized weights |
+| `GET` | `/api/report/markdown` | Download a Markdown report |
+| `GET` | `/api/refactor?file=...` | Deterministic refactor preview data |
+| `GET` | `/api/experiments` | Controlled experiment results |
+
+Git comparison accepts `base_commit`/`target_commit`,
+`base_branch`/`target_branch`, or the shorter `base_ref`/`target_ref` names.
+Snapshot comparison remains available through `before`/`after` and the saved
+snapshot selectors.
+
+## CLI
+
+`repopilot_cli.py` uses the same scanner and snapshot model without requiring
+Flask. Each command uses an isolated temporary database unless `--database` is
+provided.
+
+```bash
 python repopilot_cli.py scan PATH
 python repopilot_cli.py hotspots PATH
 python repopilot_cli.py findings PATH
 python repopilot_cli.py report PATH --format markdown
 python repopilot_cli.py report PATH --format json
 python repopilot_cli.py check PATH --max-risk 80 --max-new-findings 0
+```
 
-# Persistent CLI history, reused by later commands:
+Use the built-in deterministic example:
+
+```bash
+python repopilot_cli.py scan demo
+```
+
+Persist CLI history explicitly when needed:
+
+```bash
 python repopilot_cli.py --database .local/repopilot-cli.sqlite3 scan PATH
 python repopilot_cli.py --database .local/repopilot-cli.sqlite3 findings PATH
 ```
 
-`scan`, `hotspots`, `findings`, and JSON reports write JSON to stdout. Markdown
-reports write a readable report to stdout. The `check` command exits `0` when
-both thresholds pass and `1` when either threshold is exceeded, making it
-suitable for CI. Invalid command-line arguments or runtime errors exit `2`.
-Use `demo` as `PATH` for the built-in deterministic example repository.
+The `check` command exits with `0` when thresholds pass, `1` when a quality
+threshold fails, and `2` for invalid arguments or runtime errors.
 
-## Performance benchmark
+## Testing and verification
 
-Run the repeatable fixture benchmark with:
+The project keeps its test command offline and dependency-light:
+
+```bash
+make test
+```
+
+On Windows without `make`, run the equivalent command:
 
 ```powershell
+python -m unittest discover -s tests -v
+```
+
+Additional checks:
+
+```bash
+python -m compileall app app.py
+python experiments/run_experiments.py --check
 python benchmarks/scan_benchmark.py
 ```
 
-RepoPilot keeps a bounded in-process cache keyed by repository file metadata and
-coverage-report metadata. The cache invalidates on normal source/report edits and
-is limited to eight repository states so repeated scans stay fast without
-unbounded memory growth.
+The test suite covers the scanner, persistence, API routes, CLI, Git metrics,
+coverage parsing, dependency graphs, comparisons, experiments, and repository
+source handling.
 
 ## Controlled experiments
 
-The deterministic fixture at `fixtures/experiment_repo` exercises hotspot
-ranking, temporary refactor comparison, dependency boundaries, circular and
-unresolved imports, low coverage, and ranking-weight sensitivity. Run all four
-experiments with the exact command below:
+The checked-in fixture at `fixtures/experiment_repo` validates four repeatable
+behaviors:
 
-```powershell
+1. Hotspot ranking precision
+2. Before/after refactor comparison
+3. Dependency boundaries, cycles, and unresolved imports
+4. Ranking sensitivity to scoring weights
+
+Run the suite with:
+
+```bash
 python experiments/run_experiments.py
-python experiments/run_experiments.py --check  # exit 1 on invariant regressions
+python experiments/run_experiments.py --check
 ```
 
-The runner never mutates the fixture. It writes machine-readable results to
-`reports/experiments/experiments.json` and reviewable evidence to
-`reports/experiments/experiments.md`.
+Results are written to:
 
-## CI
+```text
+reports/experiments/experiments.json
+reports/experiments/experiments.md
+```
 
-GitHub Actions runs the locked dependency install, offline test suite, and the
-CLI quality gate from `.github/workflows/ci.yml` on pushes and pull requests.
+The experiment runner uses temporary copies and does not mutate the fixture.
 
 ## Docker
+
+The Docker image includes Git so remote repository scans work inside the
+container:
 
 ```bash
 docker build -t repopilot .
 docker run --rm -p 5000:5000 repopilot
 ```
+
+Open <http://127.0.0.1:5000> in your browser.
+
+For a persistent database or remote clone cache, mount local directories and set
+the corresponding environment variables. Do not bake credentials into the
+image.
+
+## Reproducible development
+
+- Python is pinned in `.python-version`.
+- Application dependencies are pinned in `requirements.lock`.
+- The Dockerfile installs the system Git dependency and locked Python packages.
+- `make test` is the single offline test command used by CI.
+- No global package installation is required.
+- Runtime databases, caches, and generated local state are excluded from Git.
+
+## CI
+
+GitHub Actions runs on pushes and pull requests. The workflow:
+
+1. Checks out the repository.
+2. Uses the pinned Python version.
+3. Installs `requirements.lock`.
+4. Runs the offline test suite.
+5. Runs the demo CLI quality gate.
+6. Runs the controlled experiment invariants.
+
+See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+## Project structure
+
+```text
+app.py                 Flask development entrypoint
+app/                   Application package, scanner, routes, templates, assets
+tests/                 Offline unit and API tests
+fixtures/              Deterministic analysis fixture
+experiments/            Controlled experiment runner
+benchmarks/             Repeatable scanner benchmark
+reports/experiments/    Generated experiment evidence
+Dockerfile              Reproducible container build
+Makefile                Test and run commands
+repopilot_cli.py        Dependency-free CLI wrapper
+```
+
+## Limitations
+
+- The browser scan input currently accepts local folders and HTTPS Git URLs;
+  SSH clone URL input is not supported.
+- Dependency analysis is conservative and may classify valid alias-based or
+  generated imports as unresolved.
+- Only the first 250 supported files are analyzed in one scan.
+- Remote scans require network access and Git for the initial clone. Cached
+  clones can be scanned without recloning.
+- The development server is not intended to be exposed directly to the public
+  internet.
+
+## License
+
+No license file is currently included in this repository. Add a license before
+distributing RepoPilot or accepting external contributions under a specific
+license.
