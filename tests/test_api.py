@@ -85,6 +85,7 @@ class RepoPilotApiTests(unittest.TestCase):
         self.assertNotIn(b">Churn<", dashboard.data)
         self.assertIn(b"Dependency summary", dashboard.data)
         self.assertIn(b"src/api/routes.py", dashboard.data)
+        self.assertIn(b'href="/dashboard#risk-table"', dashboard.data)
         self.assertNotIn(b"node-center", dashboard.data)
         self.assertIn(b"data-snapshot-id=\"snapshot-001\"", dashboard.data)
         self.assertIn(b"average risk", dashboard.data)
