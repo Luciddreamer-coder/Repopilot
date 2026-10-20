@@ -123,6 +123,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .git-detail-grid small { color: var(--color-text-muted); font-size: 9px; }
 .git-date { font: 11px/1.35 monospace; }
 .repository-compare-picker { padding: 20px 21px; }
+.repository-compare-picker > form { display: block; }
 .compare-form-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; margin-bottom: 15px; }
 .compare-form-heading p { margin: 0; color: var(--color-text-muted); font-size: 10px; }
 .git-ref-grid, .snapshot-fallback-grid { display: grid; grid-template-columns: minmax(0, 1fr) 35px minmax(0, 1fr); gap: 12px; align-items: end; }
