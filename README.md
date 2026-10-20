@@ -11,6 +11,16 @@ Python scanner, a server-rendered dashboard, and a local SQLite snapshot store.
 It is designed to run from a clean checkout with no frontend build step and no
 external service dependency.
 
+## Live demo
+
+Try the hosted demo:
+
+**[Open RepoPilot on Render](https://repopilot-9sn8.onrender.com)**
+
+The live deployment currently starts with the built-in demo repository so the
+dashboard can be explored immediately. Use **New scan** to analyze a public
+GitHub repository.
+
 ## Highlights
 
 - **Local repository scans** from an absolute folder path.
@@ -78,6 +88,24 @@ Open <http://127.0.0.1:5000> after the server starts.
 The development entrypoint enables Flask debug mode. For a production
 deployment, run behind a production WSGI server and configure the deployment's
 process manager separately.
+
+## Render deployment
+
+The project is also deployed as a Docker web service on Render:
+
+```text
+https://repopilot-9sn8.onrender.com
+```
+
+The hosted demo is intended for product exploration and public repository
+scans. The free Render deployment uses temporary storage, so SQLite scan history
+and the remote Git clone cache should be treated as disposable. A paid Render
+service with a persistent disk is recommended when scan history and cached
+checkouts must survive restarts.
+
+If the live demo has been inactive, the first request may take longer while the
+service wakes up. Refresh the page after it responds if the initial request
+appears delayed.
 
 ## Scan a repository
 
@@ -410,6 +438,12 @@ repopilot_cli.py        Dependency-free CLI wrapper
 - Only the first 250 supported files are analyzed in one scan.
 - Remote scans require network access and Git for the initial clone. Cached
   clones can be scanned without recloning.
+- The free Render demo may sleep after inactivity, so its first request can be
+  slower while the service wakes up.
+- The free Render deployment has ephemeral storage; scan history and remote
+  clone caches may be lost after a restart or redeploy.
+- Hosted scans clone repository source onto the hosting service. Run RepoPilot
+  locally when source code must remain on your own machine.
 - The development server is not intended to be exposed directly to the public
   internet.
 
