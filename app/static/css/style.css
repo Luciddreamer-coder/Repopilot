@@ -101,7 +101,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .architecture-node-name { fill: var(--color-text); font: 700 15px Inter, sans-serif; }
 .architecture-node-risk { fill: var(--color-text-secondary); font: 11px monospace; }
 .architecture-node-path { fill: var(--color-text-muted); font: 10px monospace; }
-.architecture-node-flag { fill: var(--color-risk-medium); font: 800 8px monospace; letter-spacing: .08em; text-anchor: end; }
+.architecture-node-flag { display: none; }
 .architecture-node-flag.is-unresolved { fill: var(--color-risk-high); }
 .architecture-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; color: var(--color-text-muted); font-size: 9px; }
 .legend-line, .legend-node { display: inline-block; vertical-align: middle; }
@@ -1823,7 +1823,7 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
   stroke: none !important;
   stroke-width: 0 !important;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
   text-rendering: geometricPrecision;
 }
@@ -1834,7 +1834,7 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
   stroke: none !important;
   stroke-width: 0 !important;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
   text-rendering: geometricPrecision;
 }
@@ -1845,7 +1845,7 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
   stroke: none !important;
   stroke-width: 0 !important;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 500;
   text-rendering: geometricPrecision;
 }
