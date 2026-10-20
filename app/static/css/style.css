@@ -82,8 +82,8 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 /* Relationship-aware architecture map. The SVG geometry comes from the
    dependency graph payload; these rules only provide the visual treatment. */
 .graph-subtitle { margin: 6px 0 0; color: var(--color-text-muted); font-size: 10px; }
-.architecture-stage { min-height: 420px; padding: 0; overflow: auto; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-elevated); }
-.architecture-graph { display: block; width: 100%; min-width: 720px; height: auto; min-height: 420px; }
+.architecture-stage { min-height: 420px; max-height: 680px; padding: 0; overflow: auto; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-elevated); }
+.architecture-graph { display: block; width: 100%; min-width: 0; height: auto; min-height: 420px; }
 .architecture-canvas { fill: var(--color-surface-elevated); }
 .architecture-edge { fill: none; stroke: rgba(141,185,245,.58); stroke-width: 2; opacity: .82; transition: stroke .18s ease, opacity .18s ease; }
 .architecture-edge:hover { stroke: var(--color-accent); opacity: 1; }
@@ -1809,8 +1809,7 @@ small, kbd { font-size: var(--font-size-xs) !important; line-height: 1.45; }
 }
 
 .architecture-stage {
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: auto;
 }
 
 .architecture-graph {
